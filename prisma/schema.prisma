@@ -1,0 +1,161 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Category {
+  id           String             @id @default(cuid())
+  slug         String             @unique
+  name         String
+  description  String?
+  tools        Tool[]
+  capabilities Capability[]
+  criteria     ScoringCriterion[]
+  frameworks   ScoringFramework[]
+  newsEntries  NewsEntry[]
+  adoptions    PeerAdoption[]
+}
+
+model Tool {
+  id             String           @id @default(cuid())
+  categoryId     String
+  category       Category         @relation(fields: [categoryId], references: [id])
+  name           String
+  ourFirmStatus  String           @default("unknown") // adopted | evaluating | not_adopted | unknown
+  ourFirmNotes   String?
+  capabilities   ToolCapability[]
+  scores         ToolScore[]
+  newsEntries    NewsEntry[]
+  adoptions      PeerAdoption[]
+}
+
+model Capability {
+  id         String           @id @default(cuid())
+  categoryId String
+  category   Category         @relation(fields: [categoryId], references: [id])
+  name       String
+  order      Int
+  entries    ToolCapability[]
+}
+
+model ToolCapability {
+  id           String     @id @default(cuid())
+  toolId       String
+  tool         Tool       @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  capabilityId String
+  capability   Capability @relation(fields: [capabilityId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  status       String     @default("unknown")
+  notes        String?
+}
+
+model ScoringCriterion {
+  id          String      @id @default(cuid())
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  name        String
+  weight      Float
+  description String?
+  order       Int
+  scores      ToolScore[]
+}
+
+model ScoringFramework {
+  id          String                    @id @default(cuid())
+  categoryId  String
+  category    Category                  @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  name        String
+  createdAt   DateTime                  @default(now())
+  updatedAt   DateTime                  @updatedAt
+  clientName  String?
+  tools       ScoringFrameworkTool[]
+  criteria    ScoringFrameworkCriterion[]
+  scores      ScoringFrameworkScore[]
+  stackItems  ScoringFrameworkStackItem[]
+}
+
+model ScoringFrameworkTool {
+  id            String           @id @default(cuid())
+  frameworkId    String
+  framework      ScoringFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  name          String
+  sortOrder     Int
+  scores        ScoringFrameworkScore[]
+}
+
+model ScoringFrameworkCriterion {
+  id            String           @id @default(cuid())
+  frameworkId    String
+  framework      ScoringFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  name          String
+  description   String?
+  weight        Float
+  sortOrder     Int
+  scores        ScoringFrameworkScore[]
+}
+
+model ScoringFrameworkScore {
+  id           String                    @id @default(cuid())
+  frameworkId  String
+  framework    ScoringFramework          @relation(fields: [frameworkId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  toolId       String
+  tool         ScoringFrameworkTool       @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  criterionId  String
+  criterion    ScoringFrameworkCriterion  @relation(fields: [criterionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  score        Int?
+}
+
+model ScoringFrameworkStackItem {
+  id          String           @id @default(cuid())
+  frameworkId String
+  framework   ScoringFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  name        String
+  role        String?
+  notes       String?
+  sortOrder   Int
+}
+
+model ToolScore {
+  id          String           @id @default(cuid())
+  toolId      String
+  tool        Tool             @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  criterionId String
+  criterion   ScoringCriterion @relation(fields: [criterionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  score       Int?
+}
+
+model NewsEntry {
+  id         String   @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  toolId     String?
+  tool       Tool?    @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  date       DateTime
+  updateType String
+  summary    String
+  sourceUrl  String?
+  impact     String
+  loggedBy   String
+}
+
+model PeerFirm {
+  id        String         @id @default(cuid())
+  name      String
+  adoptions PeerAdoption[]
+}
+
+model PeerAdoption {
+  id         String   @id @default(cuid())
+  peerFirmId String
+  peerFirm   PeerFirm @relation(fields: [peerFirmId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  toolId     String?
+  tool       Tool?    @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dateLogged DateTime
+  sourceNote String
+  sourceUrl  String?
+}
