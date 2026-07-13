@@ -53,7 +53,6 @@ fs.writeFileSync(
   JSON.stringify(
     {
       project_id: "appgprj_6a550e789adc81918c85fa461f4ba6d9",
-      build_output: "dist",
     },
     null,
     2
