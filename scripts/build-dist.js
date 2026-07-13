@@ -42,7 +42,7 @@ const serverDir = path.join(distDir, "server");
 fs.mkdirSync(serverDir, { recursive: true });
 fs.writeFileSync(
   path.join(serverDir, "index.js"),
-  "require('../server.js');\n",
+  "import '../server.js';\n",
   "utf8"
 );
 
