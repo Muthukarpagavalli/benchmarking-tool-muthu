@@ -1,30 +1,21 @@
-import { PrismaClient } from "@prisma/client";
+const { PrismaClient } = require("@prisma/client");
 
 const prisma = new PrismaClient();
 
-// Same 10-criterion weighted scoring framework applied to every category,
-// mirroring the structure of the uploaded spreadsheet template. Weights
-// are fractions summing to 1.0 (the original template's example weights
-// summed to 1.1, which we've corrected here).
 const STANDARD_CRITERIA = [
   { name: "Core functionality & feature coverage", weight: 0.18, description: "Breadth and depth of features relevant to this category" },
-  { name: "Ease of use / UX", weight: 0.10, description: "Learning curve, interface design, user adoption ease" },
+  { name: "Ease of use / UX", weight: 0.1, description: "Learning curve, interface design, user adoption ease" },
   { name: "AI capabilities", weight: 0.15, description: "Quality and usefulness of AI-powered features" },
-  { name: "Integrations & API", weight: 0.10, description: "Ability to connect with existing tech stack" },
+  { name: "Integrations & API", weight: 0.1, description: "Ability to connect with existing tech stack" },
   { name: "Security & compliance", weight: 0.12, description: "Certifications (SOC2, ISO), data residency, access controls" },
   { name: "Scalability", weight: 0.08, description: "Ability to handle growing volume/users/complexity" },
   { name: "Customization/configurability", weight: 0.07, description: "Ability to tailor workflows to org needs" },
   { name: "Customer support & onboarding", weight: 0.07, description: "Quality of implementation help and ongoing support" },
-  { name: "Pricing / value for money", weight: 0.10, description: "Cost relative to features and ROI" },
+  { name: "Pricing / value for money", weight: 0.1, description: "Cost relative to features and ROI" },
   { name: "Market presence & reviews", weight: 0.03, description: "Reputation, analyst recognition, user reviews (e.g. G2)" },
 ];
 
-type Cell = { status: "yes" | "no" | "partial" | "unknown"; notes?: string };
-
-// Example "what does our own firm actually use" data, so the benchmark
-// reports have something real to compare peer sightings against. Adjust
-// these to match your firm's actual stack.
-const OUR_FIRM_STATUS: Record<string, string> = {
+const OUR_FIRM_STATUS = {
   "DocuSign CLM": "adopted",
   iManage: "adopted",
   CoCounsel: "evaluating",
@@ -380,13 +371,13 @@ async function main() {
       data: { slug: cat.slug, name: cat.name, description: cat.description },
     });
 
-    const toolRecords: Record<string, { id: string }> = {};
+    const toolRecords = {};
     for (const toolName of cat.tools) {
       const tool = await prisma.tool.create({
         data: {
           categoryId: category.id,
           name: toolName,
-          ourFirmStatus: OUR_FIRM_STATUS[toolName] ?? "unknown",
+          ourFirmStatus: OUR_FIRM_STATUS[toolName] || "unknown",
         },
       });
       toolRecords[toolName] = tool;
@@ -397,14 +388,15 @@ async function main() {
       const capability = await prisma.capability.create({
         data: { categoryId: category.id, name: capDef.name, order: i },
       });
-      for (const [toolName, cell] of Object.entries(capDef.cells as Record<string, Cell>)) {
+      for (const toolName of Object.keys(capDef.cells)) {
+        const cell = capDef.cells[toolName];
         if (!toolRecords[toolName]) continue;
         await prisma.toolCapability.create({
           data: {
             toolId: toolRecords[toolName].id,
             capabilityId: capability.id,
             status: cell.status,
-            notes: cell.notes ?? null,
+            notes: cell.notes || null,
           },
         });
       }
@@ -443,7 +435,6 @@ async function main() {
     });
   }
 
-  // A couple of example news log entries so the log isn't empty on first load.
   const clm = await prisma.category.findUnique({ where: { slug: "clm" } });
   const ironclad = await prisma.tool.findFirst({ where: { name: "Ironclad" } });
   if (clm && ironclad) {
@@ -461,7 +452,6 @@ async function main() {
     });
   }
 
-  // Example peer firm benchmarking entries for Component 2.
   const peerFirm = await prisma.peerFirm.create({ data: { name: "Example Peer Firm LLP" } });
   const genai = await prisma.category.findUnique({ where: { slug: "genai" } });
   const harvey = await prisma.tool.findFirst({ where: { name: "Harvey" } });

@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import TopBar from "@/components/TopBar";
 
 type Category = { id: string; slug: string; name: string };
 type Tool = { id: string; name: string; categoryId: string };
@@ -29,7 +28,12 @@ export default function NewsClient({
   categories: Category[];
   tools: Tool[];
   featureTypes: string[];
-  stats: { categories: number; tools: number; peerFirms: number; sightings: number };
+  stats: {
+    categories: number;
+    tools: number;
+    peerFirms: number;
+    sightings: number;
+  };
 }) {
   const router = useRouter();
   const [filterCategoryId, setFilterCategoryId] = useState("");
@@ -101,9 +105,22 @@ export default function NewsClient({
     setForm((current) => ({ ...current, updateType: trimmed }));
   }
 
+  async function createTool() {
+    const name = window.prompt("New tool name");
+    if (!name) return;
+    const response = await fetch(`/api/categories/${form.categoryId}/tools`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) return;
+    const tool = (await response.json()) as Tool;
+    setForm((current) => ({ ...current, toolId: tool.id }));
+    router.refresh();
+  }
+
   const exportQuery = useMemo(() => {
     const params = new URLSearchParams();
-    params.set("scope", "filtered");
     if (filterCategoryId) params.set("categoryId", filterCategoryId);
     if (filterToolId) params.set("toolId", filterToolId);
     if (filterFeatureType) params.set("featureType", filterFeatureType);
@@ -114,161 +131,175 @@ export default function NewsClient({
 
   return (
     <div>
-      <TopBar title="News & updates log" stats={stats} />
       <h2>News &amp; updates log</h2>
       <p className="muted">
         A running log of anything read or heard about these tools - funding news, launches, pricing changes,
         reviews. Add a row any time.
       </p>
 
-      <div className="form-row" style={{ marginTop: 16 }}>
-        <select
-          value={form.categoryId}
-          onChange={(e) => {
-            if (e.target.value === "__new__") {
-              void createCategory();
-              return;
-            }
-            setForm({ ...form, categoryId: e.target.value, toolId: "" });
-          }}
-        >
-          <option value="__new__">+ New Category</option>
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-        <select value={form.toolId} onChange={(e) => setForm({ ...form, toolId: e.target.value })}>
-          <option value="">(category-wide)</option>
-          {toolsForCategory.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-        <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-        <select
-          value={form.updateType}
-          onChange={(e) => {
-            if (e.target.value === "__new__") {
-              void createFeatureType();
-              return;
-            }
-            setForm({ ...form, updateType: e.target.value });
-          }}
-        >
-          <option value="__new__">+ New Feature Type</option>
-          {featureTypeOptions
-            .filter((type) => type !== "__new__")
-            .map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-            ))}
-        </select>
-        <select value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value })}>
-          <option>Watch</option>
-          <option>Evaluate</option>
-          <option>Act</option>
-        </select>
-      </div>
-      <div className="form-row">
-        <input
-          placeholder="Summary"
-          value={form.summary}
-          onChange={(e) => setForm({ ...form, summary: e.target.value })}
-          style={{ flex: 3 }}
-        />
-        <input
-          placeholder="Source URL"
-          value={form.sourceUrl}
-          onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
-        />
-        <input
-          placeholder="Logged by"
-          value={form.loggedBy}
-          onChange={(e) => setForm({ ...form, loggedBy: e.target.value })}
-          style={{ maxWidth: 140 }}
-        />
-        <button className="primary" onClick={submit} disabled={submitting}>
-          {submitting ? "Adding..." : "Add entry"}
-        </button>
-      </div>
-
-      <div className="report-card" style={{ marginTop: 16 }}>
-        <div className="workspace-header">
-          <strong>Filters</strong>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <a className="export-button" href={`/api/news/export?scope=filtered&${exportQuery}`}>
-              Export filtered PDF
-            </a>
-            <a className="export-button" href="/api/news/export?scope=all">
-              Export full PDF
-            </a>
+      <div className="news-layout">
+        <div className="news-main">
+          <div className="report-card" style={{ marginTop: 16 }}>
+            <div className="workspace-header">
+              <strong>Filters</strong>
+              <a className="export-button" href={`/api/news/export${exportQuery ? `?${exportQuery}` : ""}`}>
+                Export PDF
+              </a>
+            </div>
+            <div className="form-row" style={{ marginTop: 12 }}>
+              <select value={filterCategoryId} onChange={(e) => setFilterCategoryId(e.target.value)}>
+                <option value="">All categories</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <select value={filterToolId} onChange={(e) => setFilterToolId(e.target.value)}>
+                <option value="">All tools</option>
+                {filteredTools.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <select value={filterFeatureType} onChange={(e) => setFilterFeatureType(e.target.value)}>
+                <option value="">All feature types</option>
+                {[...new Set([...featureTypeOptions, ...filtered.map((entry) => entry.updateType)])]
+                  .sort((a, b) => a.localeCompare(b))
+                  .map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+              </select>
+              <div className="date-range-group">
+                <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
+                <span>to</span>
+                <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="form-row" style={{ marginTop: 12 }}>
-          <select value={filterCategoryId} onChange={(e) => setFilterCategoryId(e.target.value)}>
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-          <select value={filterToolId} onChange={(e) => setFilterToolId(e.target.value)}>
-            <option value="">All tools</option>
-            {filteredTools.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        <select value={filterFeatureType} onChange={(e) => setFilterFeatureType(e.target.value)}>
-          <option value="">All feature types</option>
-          {[...new Set([...featureTypeOptions, ...filtered.map((entry) => entry.updateType)])]
-            .sort((a, b) => a.localeCompare(b))
-            .map((type) => (
-              <option key={type} value={type}>
-                {type}
-              </option>
-              ))}
-          </select>
-          <input type="date" value={filterDateFrom} onChange={(e) => setFilterDateFrom(e.target.value)} />
-          <input type="date" value={filterDateTo} onChange={(e) => setFilterDateTo(e.target.value)} />
-        </div>
-      </div>
 
-      <div className="news-row" style={{ fontWeight: 600, borderBottom: "2px solid #ccc", marginTop: 16 }}>
-        <span>Date</span>
-        <span>Category</span>
-        <span>Tool</span>
-        <span>Type</span>
-        <span>Summary</span>
-        <span>Impact</span>
-      </div>
-      {filtered.map((e) => (
-        <div className="news-row" key={e.id}>
-          <span>{new Date(e.date).toLocaleDateString()}</span>
-          <span>{e.category.name}</span>
-          <span>{e.tool?.name ?? "-"}</span>
-          <span>{e.updateType}</span>
-          <span>
-            {e.summary}
-            {e.sourceUrl && (
-              <>
-                {" "}
-                <a href={e.sourceUrl} target="_blank" rel="noreferrer">
-                  source
-                </a>
-              </>
-            )}
-          </span>
-          <span className={`impact-${e.impact}`}>{e.impact}</span>
+          <div className="news-row news-header" style={{ fontWeight: 600, borderBottom: "2px solid #ccc", marginTop: 16 }}>
+            <span>Date</span>
+            <span>Category</span>
+            <span>Tool</span>
+            <span>Type</span>
+            <span>Summary</span>
+            <span>Impact</span>
+          </div>
+          {filtered.map((e) => (
+            <div className="news-row" key={e.id}>
+              <span>{new Date(e.date).toLocaleDateString()}</span>
+              <span>{e.category.name}</span>
+              <span>{e.tool?.name ?? "-"}</span>
+              <span>{e.updateType}</span>
+              <span>
+                {e.summary}
+                {e.sourceUrl && (
+                  <>
+                    {" "}
+                    <a href={e.sourceUrl} target="_blank" rel="noreferrer">
+                      source
+                    </a>
+                  </>
+                )}
+              </span>
+              <span className={`impact-${e.impact}`}>{e.impact}</span>
+            </div>
+          ))}
+          {filtered.length === 0 && <p className="muted">No entries yet for this filter.</p>}
         </div>
-      ))}
-      {filtered.length === 0 && <p className="muted">No entries yet for this filter.</p>}
+
+        <aside className="news-sidebar">
+          <div className="report-card news-entry-card">
+            <h4>New entry</h4>
+            <div className="stack-list">
+              <select
+                value={form.categoryId}
+                onChange={(e) => {
+                  if (e.target.value === "__new__") {
+                    void createCategory();
+                    return;
+                  }
+                  setForm({ ...form, categoryId: e.target.value, toolId: "" });
+                }}
+              >
+                <option value="__new__">+ New Category</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={form.toolId}
+                onChange={(e) => {
+                  if (e.target.value === "__new__") {
+                    void createTool();
+                    return;
+                  }
+                  setForm({ ...form, toolId: e.target.value });
+                }}
+              >
+                <option value="" disabled hidden>
+                  + Add Tool
+                </option>
+                <option value="__new__">+ Add Tool</option>
+                {toolsForCategory.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              <select
+                value={form.updateType}
+                onChange={(e) => {
+                  if (e.target.value === "__new__") {
+                    void createFeatureType();
+                    return;
+                  }
+                  setForm({ ...form, updateType: e.target.value });
+                }}
+              >
+                <option value="__new__">+ New Feature Type</option>
+                {featureTypeOptions
+                  .filter((type) => type !== "__new__")
+                  .map((type) => (
+                    <option key={type} value={type}>
+                      {type}
+                    </option>
+                  ))}
+              </select>
+              <select value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value })}>
+                <option>Watch</option>
+                <option>Evaluate</option>
+                <option>Act</option>
+              </select>
+              <input
+                placeholder="Summary"
+                value={form.summary}
+                onChange={(e) => setForm({ ...form, summary: e.target.value })}
+              />
+              <input
+                placeholder="Source URL"
+                value={form.sourceUrl}
+                onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
+              />
+              <input
+                placeholder="Logged by"
+                value={form.loggedBy}
+                onChange={(e) => setForm({ ...form, loggedBy: e.target.value })}
+              />
+              <button className="primary" onClick={submit} disabled={submitting}>
+                {submitting ? "Adding..." : "Add entry"}
+              </button>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   );
 }

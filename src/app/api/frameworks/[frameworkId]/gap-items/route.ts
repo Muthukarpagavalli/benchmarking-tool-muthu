@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET(_req: NextRequest, { params }: { params: { frameworkId: string } }) {
-  const items = await prisma.scoringFrameworkStackItem.findMany({
+  const items = await prisma.scoringFrameworkGapItem.findMany({
     where: { frameworkId: params.frameworkId },
     orderBy: { sortOrder: "asc" },
   });
@@ -11,13 +11,12 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
 
 export async function POST(req: NextRequest, { params }: { params: { frameworkId: string } }) {
   const body = await req.json();
-  const name = String(body.name ?? "").trim();
-  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
-  const role = body.role ? String(body.role).trim() : null;
+  const title = String(body.title ?? "").trim();
+  if (!title) return NextResponse.json({ error: "title required" }, { status: 400 });
   const notes = body.notes ? String(body.notes).trim() : null;
-  const sortOrder = await prisma.scoringFrameworkStackItem.count({ where: { frameworkId: params.frameworkId } });
-  const item = await prisma.scoringFrameworkStackItem.create({
-    data: { frameworkId: params.frameworkId, name, role, notes, sortOrder },
+  const sortOrder = await prisma.scoringFrameworkGapItem.count({ where: { frameworkId: params.frameworkId } });
+  const item = await prisma.scoringFrameworkGapItem.create({
+    data: { frameworkId: params.frameworkId, title, notes, sortOrder },
   });
   return NextResponse.json(item);
 }

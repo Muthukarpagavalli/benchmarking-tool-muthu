@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -7,27 +6,44 @@ export async function POST(req: NextRequest, { params }: { params: { frameworkId
   const name = String(body.name ?? "").trim();
   if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
 
-  const weight = body.weight === undefined ? 1 : Number(body.weight);
   const description = body.description ?? null;
-  const existing = (await prisma.$queryRaw`
-    SELECT COUNT(1) AS count
-    FROM ScoringFrameworkCriterion
-    WHERE frameworkId = ${params.frameworkId}
-  `) as Array<{ count: number }>;
-  const sortOrder = Number(existing[0]?.count ?? 0);
-  const id = randomUUID();
-  await prisma.$transaction([
-    prisma.$executeRaw`
-      INSERT INTO ScoringFrameworkCriterion (id, frameworkId, name, description, weight, sortOrder)
-      VALUES (${id}, ${params.frameworkId}, ${name}, ${description}, ${weight}, ${sortOrder})
-    `,
-    prisma.$executeRaw`
-      INSERT INTO ScoringFrameworkScore (id, frameworkId, toolId, criterionId, score)
-      SELECT NEWID(), ${params.frameworkId}, t.id, ${id}, NULL
-      FROM ScoringFrameworkTool t
-      WHERE t.frameworkId = ${params.frameworkId}
-    `,
-  ]);
+  const existingCount = await prisma.scoringFrameworkCriterion.count({ where: { frameworkId: params.frameworkId } });
+  const sortOrder = existingCount;
+  const criteria = await prisma.scoringFrameworkCriterion.findMany({
+    where: { frameworkId: params.frameworkId },
+    orderBy: { sortOrder: "asc" },
+    select: { id: true },
+  });
+  const total = criteria.length + 1;
+  const equalWeight = total > 0 ? 1 / total : 1;
+  const criterion = await prisma.scoringFrameworkCriterion.create({
+    data: {
+      frameworkId: params.frameworkId,
+      name,
+      description,
+      weight: equalWeight,
+      sortOrder,
+    },
+  });
+  const tools = await prisma.scoringFrameworkTool.findMany({
+    where: { frameworkId: params.frameworkId },
+    select: { id: true },
+  });
+  await prisma.scoringFrameworkScore.createMany({
+    data: tools.map((tool) => ({
+      frameworkId: params.frameworkId,
+      toolId: tool.id,
+      criterionId: criterion.id,
+      score: null,
+    })),
+  });
+  await prisma.scoringFrameworkCriterion.updateMany({
+    where: {
+      frameworkId: params.frameworkId,
+      id: { not: criterion.id },
+    },
+    data: { weight: equalWeight },
+  });
 
-  return NextResponse.json({ id, frameworkId: params.frameworkId, name, description, weight, sortOrder });
+  return NextResponse.json(criterion);
 }

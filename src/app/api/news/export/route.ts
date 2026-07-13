@@ -44,6 +44,46 @@ function rectOps(x: number, y: number, w: number, h: number, fill: [number, numb
   return ops.join("\n");
 }
 
+function tableBox(
+  title: string,
+  headers: string[],
+  rows: string[][],
+  x: number,
+  y: number,
+  w: number,
+  colWidths: number[]
+) {
+  const titleH = 24;
+  const headerH = 18;
+  const rowH = rows.length ? 18 : 16;
+  const h = 34 + titleH + headerH + rowH * Math.max(rows.length, 1);
+  const top = y + h;
+  let output = rectOps(x, y, w, h, [1, 1, 1], [0.84, 0.89, 0.84]);
+  output += `\n${rectOps(x, top - titleH, w, titleH, [0.25, 0.39, 0.30], [0.25, 0.39, 0.30])}`;
+  output += `\n${textOps([title], x + 10, top - 9, 11, 2, [1, 1, 1])}`;
+  output += `\n${rectOps(x + 1, top - titleH - headerH, w - 2, headerH, [0.975, 0.988, 0.975], [0.88, 0.92, 0.88])}`;
+  let cursorX = x;
+  headers.forEach((header, index) => {
+    output += `\n${textOps([header], cursorX + 10, top - titleH - 6, 9.2, 2, [0.15, 0.28, 0.19])}`;
+    cursorX += colWidths[index] ?? 0;
+  });
+  const rowStartY = top - titleH - headerH - 10;
+  if (rows.length === 0) {
+    output += `\n${textOps(["No entries found."], x + 10, rowStartY - 2, 8.4)}`;
+    return output;
+  }
+  rows.forEach((row, rowIndex) => {
+    const rowTop = rowStartY - rowIndex * rowH;
+    output += `\n${rectOps(x + 1, rowTop - rowH + 1, w - 2, rowH, [1, 1, 1], [0.89, 0.93, 0.89])}`;
+    let cellX = x;
+    headers.forEach((_, index) => {
+      output += `\n${textOps([row[index] ?? ""], cellX + 10, rowTop - 8, 8.2)}`;
+      cellX += colWidths[index] ?? 0;
+    });
+  });
+  return output;
+}
+
 function buildPdf(page: string) {
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -69,22 +109,19 @@ function buildPdf(page: string) {
 }
 
 export async function GET(req: NextRequest) {
-  const scope = req.nextUrl.searchParams.get("scope") ?? "filtered";
+  const categoryId = req.nextUrl.searchParams.get("categoryId");
+  const toolId = req.nextUrl.searchParams.get("toolId");
+  const featureType = req.nextUrl.searchParams.get("featureType");
+  const dateFrom = req.nextUrl.searchParams.get("dateFrom");
+  const dateTo = req.nextUrl.searchParams.get("dateTo");
   const where: Record<string, unknown> = {};
-  if (scope === "filtered") {
-    const categoryId = req.nextUrl.searchParams.get("categoryId");
-    const toolId = req.nextUrl.searchParams.get("toolId");
-    const featureType = req.nextUrl.searchParams.get("featureType");
-    const dateFrom = req.nextUrl.searchParams.get("dateFrom");
-    const dateTo = req.nextUrl.searchParams.get("dateTo");
-    if (categoryId) where.categoryId = categoryId;
-    if (toolId) where.toolId = toolId;
-    if (featureType) where.updateType = featureType;
-    if (dateFrom || dateTo) {
-      where.date = {};
-      if (dateFrom) (where.date as Record<string, unknown>).gte = new Date(dateFrom);
-      if (dateTo) (where.date as Record<string, unknown>).lte = new Date(dateTo);
-    }
+  if (categoryId) where.categoryId = categoryId;
+  if (toolId) where.toolId = toolId;
+  if (featureType) where.updateType = featureType;
+  if (dateFrom || dateTo) {
+    where.date = {};
+    if (dateFrom) (where.date as Record<string, unknown>).gte = new Date(dateFrom);
+    if (dateTo) (where.date as Record<string, unknown>).lte = new Date(dateTo);
   }
 
   const entries = await prisma.newsEntry.findMany({
@@ -93,44 +130,28 @@ export async function GET(req: NextRequest) {
     orderBy: { date: "desc" },
   });
 
-  const title = scope === "filtered" ? "Filtered News & Updates Report" : "Complete News & Updates Log";
-  const subtitle =
-    scope === "filtered"
-      ? "Exported from the current filters"
-      : "Exported from the full news log";
+  const title = "News and Update log";
   const rows = entries.slice(0, 12);
-  const moreCount = Math.max(entries.length - rows.length, 0);
-  const rowText = rows
-    .map((entry) => {
-      const date = new Date(entry.date).toLocaleDateString();
-      const tool = entry.tool?.name ?? "-";
-      const summary = entry.sourceUrl ? `${entry.summary} (${entry.sourceUrl})` : entry.summary;
-      return `${date} | ${entry.category.name} | ${tool} | ${entry.updateType} | ${summary} | ${entry.impact}`;
-    })
-    .join("\n");
 
   const page = [
     rectOps(0, 0, PAGE_WIDTH, PAGE_HEIGHT, [0.99, 0.99, 0.98]),
     rectOps(0, PAGE_HEIGHT - 60, PAGE_WIDTH, 60, [0.25, 0.39, 0.30]),
-    textOps(["News & updates export"], MARGIN, PAGE_HEIGHT - 22, 10.5, 2, [0.92, 0.96, 0.92]),
-    textOps([title], MARGIN, PAGE_HEIGHT - 40, 18, 2, [1, 1, 1]),
-    textOps([subtitle], PAGE_WIDTH - 220, PAGE_HEIGHT - 22, 9, 1, [0.93, 0.96, 0.93]),
-    rectOps(MARGIN, 426, PAGE_WIDTH - MARGIN * 2, 88, [1, 1, 1], [0.84, 0.89, 0.84]),
-    textOps(["Report summary"], MARGIN + 10, 496, 12, 2, [0.15, 0.28, 0.19]),
-    textOps(
-      [
-        `Entries included: ${entries.length}`,
-        `Scope: ${scope === "filtered" ? "Filtered view" : "Complete log"}`,
-        moreCount ? `Additional rows not shown on this page: ${moreCount}` : "All matched rows shown on this page",
-      ],
-      MARGIN + 10,
-      480,
-      9.2
+    textOps([title], MARGIN, PAGE_HEIGHT - 33, 18, 2, [1, 1, 1]),
+    tableBox(
+      "News log",
+      ["Date", "Category", "Tool", "Type", "Summary", "Impact"],
+      rows.length
+        ? rows.map((entry) => {
+            const date = new Date(entry.date).toLocaleDateString();
+            const tool = entry.tool?.name ?? "-";
+            return [date, entry.category.name, tool, entry.updateType, entry.summary, entry.impact];
+          })
+        : [],
+      MARGIN,
+      315,
+      PAGE_WIDTH - MARGIN * 2,
+      [78, 130, 90, 72, 252, 120]
     ),
-    rectOps(MARGIN, 36, PAGE_WIDTH - MARGIN * 2, 370, [0.975, 0.988, 0.975], [0.84, 0.89, 0.84]),
-    textOps(["Date | Category | Tool | Type | Summary | Impact"], MARGIN + 10, 388, 9.2, 2, [0.15, 0.28, 0.19]),
-    textOps(wrapText(rowText || "No entries found.", 110), MARGIN + 10, 372, 8.2),
-    rectOps(MARGIN, 18, PAGE_WIDTH - MARGIN * 2, 12, [0.25, 0.39, 0.30]),
   ].join("\n");
 
   return new Response(buildPdf(page), {

@@ -44,6 +44,46 @@ function rectOps(x: number, y: number, w: number, h: number, fill: [number, numb
   return ops.join("\n");
 }
 
+function tableBox(
+  title: string,
+  headers: string[],
+  rows: string[][],
+  x: number,
+  y: number,
+  w: number,
+  colWidths: number[]
+) {
+  const titleH = 24;
+  const headerH = 18;
+  const rowH = rows.length ? 18 : 16;
+  const h = 34 + titleH + headerH + rowH * Math.max(rows.length, 1);
+  const top = y + h;
+  let output = rectOps(x, y, w, h, [1, 1, 1], [0.84, 0.89, 0.84]);
+  output += `\n${rectOps(x, top - titleH, w, titleH, [0.25, 0.39, 0.30], [0.25, 0.39, 0.30])}`;
+  output += `\n${textOps([title], x + 10, top - 9, 11, 2, [1, 1, 1])}`;
+  output += `\n${rectOps(x + 1, top - titleH - headerH, w - 2, headerH, [0.975, 0.988, 0.975], [0.88, 0.92, 0.88])}`;
+  let cursorX = x;
+  headers.forEach((header, index) => {
+    output += `\n${textOps([header], cursorX + 10, top - titleH - 6, 9.2, 2, [0.15, 0.28, 0.19])}`;
+    cursorX += colWidths[index] ?? 0;
+  });
+  const rowStartY = top - titleH - headerH - 10;
+  if (rows.length === 0) {
+    output += `\n${textOps(["No entries found."], x + 10, rowStartY - 2, 8.4)}`;
+    return output;
+  }
+  rows.forEach((row, rowIndex) => {
+    const rowTop = rowStartY - rowIndex * rowH;
+    output += `\n${rectOps(x + 1, rowTop - rowH + 1, w - 2, rowH, [1, 1, 1], [0.89, 0.93, 0.89])}`;
+    let cellX = x;
+    headers.forEach((_, index) => {
+      output += `\n${textOps([row[index] ?? ""], cellX + 10, rowTop - 8, 8.2)}`;
+      cellX += colWidths[index] ?? 0;
+    });
+  });
+  return output;
+}
+
 function buildPdf(page: string) {
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -95,44 +135,26 @@ export async function GET(req: NextRequest) {
   });
   const reportTitle = categoryId ? `Where We Stand - ${adoptions[0]?.category.name ?? "Peer Benchmarking"}` : "Peer Benchmarking Report";
   const rows = adoptions.slice(0, 12);
-  const moreCount = Math.max(adoptions.length - rows.length, 0);
-  const rowText = rows
-    .map((a) => {
-      const date = new Date(a.dateLogged).toLocaleDateString();
-      return `${date} | ${a.peerFirm.name} | ${a.category.name} | ${a.tool?.name ?? "-"} | ${a.sourceNote}`;
-    })
-    .join("\n");
 
   const page = [
     rectOps(0, 0, PAGE_WIDTH, PAGE_HEIGHT, [0.99, 0.99, 0.98]),
     rectOps(0, PAGE_HEIGHT - 60, PAGE_WIDTH, 60, [0.25, 0.39, 0.30]),
-    textOps(["Peer benchmarking export"], MARGIN, PAGE_HEIGHT - 22, 10.5, 2, [0.92, 0.96, 0.92]),
-    textOps([reportTitle], MARGIN, PAGE_HEIGHT - 40, 18, 2, [1, 1, 1]),
-    textOps([`Presentation-ready export | ${new Date().toLocaleDateString()}`], PAGE_WIDTH - 210, PAGE_HEIGHT - 22, 9, 1, [0.93, 0.96, 0.93]),
-    rectOps(MARGIN, 408, PAGE_WIDTH - MARGIN * 2, 110, [1, 1, 1], [0.84, 0.89, 0.84]),
-    textOps(["Report summary"], MARGIN + 10, 494, 12, 2, [0.15, 0.28, 0.19]),
-    textOps(
-      [
-        `Entries included: ${adoptions.length}`,
-        `Filters: ${[
-          categoryId ? "category" : null,
-          firmId ? "firm" : null,
-          toolId ? "tool" : null,
-          vendor ? "vendor" : null,
-          industry ? "industry" : null,
-          dateFrom || dateTo ? "date range" : null,
-        ]
-          .filter(Boolean)
-          .join(", ") || "none"}`,
-        moreCount ? `Additional rows not shown on this page: ${moreCount}` : "All matched rows shown on this page",
-      ],
-      MARGIN + 10,
-      478,
-      9
+    textOps([reportTitle], MARGIN, PAGE_HEIGHT - 28, 18, 2, [1, 1, 1]),
+    textOps([`Presentation-ready export | ${new Date().toLocaleDateString()}`], PAGE_WIDTH - 210, PAGE_HEIGHT - 28, 9, 1, [0.93, 0.96, 0.93]),
+    tableBox(
+      "Adoption log",
+      ["Date", "Firm", "Category", "Tool", "Source note"],
+      rows.length
+        ? rows.map((a) => {
+            const date = new Date(a.dateLogged).toLocaleDateString();
+            return [date, a.peerFirm.name, a.category.name, a.tool?.name ?? "-", a.sourceNote];
+          })
+        : [],
+      MARGIN,
+      320,
+      PAGE_WIDTH - MARGIN * 2,
+      [76, 148, 110, 100, 286]
     ),
-    rectOps(MARGIN, 40, PAGE_WIDTH - MARGIN * 2, 350, [0.975, 0.988, 0.975], [0.84, 0.89, 0.84]),
-    textOps(["Date | Firm | Category | Tool | Source note"], MARGIN + 10, 374, 9.2, 2, [0.15, 0.28, 0.19]),
-    textOps(wrapText(rowText || "No adoptions found.", 105), MARGIN + 10, 358, 8.2),
   ].join("\n");
 
   return new Response(buildPdf(page), {

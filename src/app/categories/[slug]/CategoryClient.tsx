@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import TopBar from "@/components/TopBar";
 
 type FrameworkTool = { id: string; name: string; sortOrder: number };
 type FrameworkCriterion = { id: string; name: string; description: string | null; weight: number; sortOrder: number };
 type FrameworkScore = { id: string; toolId: string; criterionId: string; score: number | null };
 type FrameworkStackItem = { id: string; frameworkId: string; name: string; role: string | null; notes: string | null; sortOrder: number };
+type FrameworkGapItem = { id: string; frameworkId: string; title: string; notes: string | null; sortOrder: number };
 type Framework = {
   id: string;
   name: string;
@@ -17,6 +17,7 @@ type Framework = {
   criteria: FrameworkCriterion[];
   scores: FrameworkScore[];
   stackItems: FrameworkStackItem[];
+  gapItems: FrameworkGapItem[];
 };
 type Category = {
   id: string;
@@ -26,57 +27,28 @@ type Category = {
   frameworks: Framework[];
 };
 
-type StackPreset = {
-  name: string;
-  role: string;
+type PurposeDraft = {
+  purpose: string;
+  toolName: string;
   notes: string;
 };
 
-const STACK_PRESETS: Record<string, StackPreset[]> = {
-  clm: [
-    { name: "Outlook", role: "Intake and correspondence", notes: "Inbound request handling and follow-up." },
-    { name: "Adobe Sign", role: "Signature workflow", notes: "Contract execution and approvals." },
-    { name: "SharePoint", role: "Document repository", notes: "Central file storage and version control." },
-    { name: "CLM platform", role: "Matter workflow", notes: "Pipeline, routing, and approvals." },
-    { name: "GenAI review assistant", role: "Review support", notes: "Clause review, summaries, and redlining support." },
-  ],
-  dms: [
-    { name: "SharePoint", role: "Document repository", notes: "Repository, permissions, and collaboration." },
-    { name: "iManage", role: "Knowledge management", notes: "Controlled legal document storage." },
-    { name: "Outlook", role: "Email intake", notes: "Capture and route incoming requests." },
-    { name: "Adobe Sign", role: "Signature workflow", notes: "Approve and execute documents." },
-  ],
-  "contract-intelligence": [
-    { name: "Outlook", role: "Intake and triage", notes: "Capture incoming contract requests." },
-    { name: "SharePoint", role: "Document repository", notes: "Source storage and collaboration." },
-    { name: "Adobe Sign", role: "Signature workflow", notes: "Execution and approvals." },
-    { name: "GenAI review assistant", role: "Clause analysis", notes: "Issue spotting and playbook review." },
-  ],
-  genai: [
-    { name: "Outlook", role: "Request intake", notes: "User demand, triage, and routing." },
-    { name: "SharePoint", role: "Knowledge source", notes: "Context retrieval and file access." },
-    { name: "Copilot / Chat assistant", role: "User interface", notes: "Prompting, drafting, and summarisation." },
-    { name: "Governance controls", role: "Safety and audit", notes: "Guardrails, logs, and access control." },
-  ],
+type GapDraft = {
+  title: string;
+  notes: string;
 };
-
-function getCategoryPresets(slug: string) {
-  return STACK_PRESETS[slug] ?? [
-    { name: "Outlook", role: "Intake and communication", notes: "Common entry point for process work." },
-    { name: "SharePoint", role: "Document repository", notes: "File storage and collaboration." },
-    { name: "Adobe Sign", role: "Signature workflow", notes: "Execution and approvals." },
-  ];
-}
 
 export default function CategoryClient({
   category,
-  stats,
 }: {
   category: Category;
-  stats: { categories: number; tools: number; peerFirms: number; sightings: number };
 }) {
   const router = useRouter();
   const [activeFrameworkId, setActiveFrameworkId] = useState(category.frameworks[0]?.id ?? "");
+  const [purposeDraft, setPurposeDraft] = useState<PurposeDraft>({ purpose: "", toolName: "", notes: "" });
+  const [gapDraft, setGapDraft] = useState<GapDraft>({ title: "", notes: "" });
+  const [draggedToolId, setDraggedToolId] = useState<string | null>(null);
+  const [toolOrder, setToolOrder] = useState<string[]>([]);
 
   useEffect(() => {
     if (!activeFrameworkId && category.frameworks[0]?.id) {
@@ -88,6 +60,17 @@ export default function CategoryClient({
     () => category.frameworks.find((framework) => framework.id === activeFrameworkId) ?? category.frameworks[0],
     [activeFrameworkId, category.frameworks]
   );
+  const orderedTools = useMemo(() => {
+    if (!activeFramework) return [];
+    const toolMap = new Map(activeFramework.tools.map((tool) => [tool.id, tool]));
+    const ids = toolOrder.length ? toolOrder : activeFramework.tools.map((tool) => tool.id);
+    const ordered = ids.map((id) => toolMap.get(id)).filter((tool): tool is FrameworkTool => Boolean(tool));
+    return ordered.length === activeFramework.tools.length ? ordered : activeFramework.tools;
+  }, [activeFramework, toolOrder]);
+
+  useEffect(() => {
+    setToolOrder(activeFramework?.tools.map((tool) => tool.id) ?? []);
+  }, [activeFramework?.id, activeFramework?.tools]);
 
   async function createFramework() {
     const name = window.prompt("Framework name", `${category.name} Evaluation`);
@@ -130,7 +113,7 @@ export default function CategoryClient({
 
   async function addTool() {
     if (!activeFramework) return;
-    const name = window.prompt("New vendor/tool name");
+    const name = window.prompt("New vendor or tool name");
     if (!name) return;
     await fetch(`/api/frameworks/${activeFramework.id}/tools`, {
       method: "POST",
@@ -151,21 +134,53 @@ export default function CategoryClient({
     router.refresh();
   }
 
+  async function saveToolOrder(nextToolIds: string[]) {
+    if (!activeFramework) return;
+    await fetch(`/api/frameworks/${activeFramework.id}/tools/order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toolIds: nextToolIds }),
+    });
+    router.refresh();
+  }
+
   async function deleteTool(toolId: string) {
     if (!window.confirm("Remove this vendor/tool from the framework?")) return;
     await fetch(`/api/framework-tools/${toolId}`, { method: "DELETE" });
     router.refresh();
   }
 
+  function moveTool(fromId: string, toId: string) {
+    if (!activeFramework || fromId === toId) return;
+    const next = [...orderedTools.map((tool) => tool.id)];
+    const fromIndex = next.indexOf(fromId);
+    const toIndex = next.indexOf(toId);
+    if (fromIndex < 0 || toIndex < 0) return;
+    next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, fromId);
+    setToolOrder(next);
+    void saveToolOrder(next);
+  }
+
+  function onToolDragStart(toolId: string) {
+    setDraggedToolId(toolId);
+  }
+
+  function onToolDrop(targetToolId: string) {
+    if (!draggedToolId) return;
+    moveTool(draggedToolId, targetToolId);
+    setDraggedToolId(null);
+  }
+
   async function addCriterion() {
     if (!activeFramework) return;
-    const name = window.prompt("New evaluation criterion");
+    const name = window.prompt("New criterion");
     if (!name) return;
-    const weight = window.prompt("Weight as a decimal between 0 and 1", "0.10");
+    const description = window.prompt("Scoring hint or description (optional)", "");
     await fetch(`/api/frameworks/${activeFramework.id}/criteria`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, weight: weight ? Number(weight) : 0.1 }),
+      body: JSON.stringify({ name, description }),
     });
     router.refresh();
   }
@@ -181,13 +196,22 @@ export default function CategoryClient({
     router.refresh();
   }
 
-  async function updateWeight(criterionId: string, weight: string) {
-    const parsed = Number(weight);
-    if (Number.isNaN(parsed)) return;
-    await fetch(`/api/framework-criteria/${criterionId}`, {
-      method: "PATCH",
+  async function saveCriterionWeights(updatedCriterionId: string, updatedWeight: number) {
+    if (!activeFramework) return;
+    const criteria = [...activeFramework.criteria].sort((a, b) => a.sortOrder - b.sortOrder);
+    if (criteria.length === 0) return;
+    const safeWeight = Number.isFinite(updatedWeight) ? Math.max(0, Math.min(1, updatedWeight)) : 0;
+    const remaining = 1 - safeWeight;
+    const others = criteria.filter((criterion) => criterion.id !== updatedCriterionId);
+    const otherWeight = others.length > 0 ? remaining / others.length : 1;
+    const weights = criteria.map((criterion) => ({
+      id: criterion.id,
+      weight: criterion.id === updatedCriterionId ? safeWeight : otherWeight,
+    }));
+    await fetch(`/api/frameworks/${activeFramework.id}/criteria/weights`, {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weight: parsed }),
+      body: JSON.stringify({ weights }),
     });
     router.refresh();
   }
@@ -211,25 +235,45 @@ export default function CategoryClient({
 
   async function addStackItem() {
     if (!activeFramework) return;
-    const name = window.prompt("Client tool / stack item name", "Outlook");
-    if (!name) return;
-    const role = window.prompt("What role does it play?", "Email / intake");
-    const notes = window.prompt("Optional notes", "");
+    const purpose = purposeDraft.purpose.trim();
+    const name = purposeDraft.toolName.trim();
+    const notes = purposeDraft.notes.trim();
+    if (!purpose || !name) return;
     await fetch(`/api/frameworks/${activeFramework.id}/stack-items`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, role, notes }),
+      body: JSON.stringify({ name, role: purpose, notes }),
+    });
+    setPurposeDraft({ purpose, toolName: "", notes: "" });
+    router.refresh();
+  }
+
+  async function addGapItem() {
+    if (!activeFramework) return;
+    const title = gapDraft.title.trim();
+    const notes = gapDraft.notes.trim();
+    if (!title) return;
+    await fetch(`/api/frameworks/${activeFramework.id}/gap-items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title, notes }),
+    });
+    setGapDraft({ title, notes: "" });
+    router.refresh();
+  }
+
+  async function renameGapItem(id: string, field: "title" | "notes", value: string) {
+    await fetch(`/api/framework-gap-items/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
     });
     router.refresh();
   }
 
-  async function addPresetStackItem(preset: StackPreset) {
-    if (!activeFramework) return;
-    await fetch(`/api/frameworks/${activeFramework.id}/stack-items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(preset),
-    });
+  async function deleteGapItem(id: string) {
+    if (!window.confirm("Remove this gap item?")) return;
+    await fetch(`/api/framework-gap-items/${id}`, { method: "DELETE" });
     router.refresh();
   }
 
@@ -266,41 +310,21 @@ export default function CategoryClient({
       .sort((a, b) => b.total - a.total);
   }, [activeFramework]);
 
-  const coverageGaps = useMemo(() => {
-    if (!activeFramework) return [];
-    return activeFramework.criteria
-      .map((criterion) => {
-        const scores = activeFramework.tools
-          .map((tool) => findScore(tool.id, criterion.id))
-          .filter((score): score is number => typeof score === "number");
-        const average = scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
-        return { criterion, average };
-      })
-      .filter((row) => row.average < 3)
-      .sort((a, b) => a.average - b.average)
-      .slice(0, 3);
-  }, [activeFramework]);
-
   const currentStack = activeFramework?.stackItems ?? [];
-  const targetStackIdeas = useMemo(() => {
-    const presetNames = new Set(currentStack.map((item) => item.name.toLowerCase()));
-    return getCategoryPresets(category.slug)
-      .filter((preset) => !presetNames.has(preset.name.toLowerCase()))
-      .slice(0, 4);
-  }, [activeFramework, category.slug]);
+  const gapItems = activeFramework?.gapItems ?? [];
+  const displayCategoryName = category.slug === "genai" ? "GenAI" : category.name;
 
   return (
     <div>
-      <TopBar title={category.name} stats={stats} />
-      <h2>Scoring Framework Workspace</h2>
+      <h2>{displayCategoryName}</h2>
       <p className="muted">{category.description}</p>
 
       <div className="workspace-shell">
         <aside className="workspace-sidebar">
           <div className="workspace-header">
             <strong>Frameworks</strong>
-            <button className="primary" type="button" onClick={createFramework}>
-              New framework
+            <button className="framework-action framework-action-add" type="button" onClick={createFramework} aria-label="Add framework">
+              +
             </button>
           </div>
           <div className="framework-list">
@@ -319,17 +343,17 @@ export default function CategoryClient({
                   onBlur={(e) => renameFramework(framework.id, e.target.value)}
                   onClick={(e) => e.stopPropagation()}
                 />
-                <span className="framework-item-meta">{new Date(framework.updatedAt).toLocaleDateString()}</span>
                 <span
-                  className="framework-item-delete"
+                  className="framework-item-delete framework-action framework-action-delete"
                   role="button"
                   tabIndex={0}
                   onClick={(e) => {
                     e.stopPropagation();
                     deleteFramework(framework.id);
                   }}
+                  aria-label="Delete framework"
                 >
-                  Delete
+                  -
                 </span>
               </div>
             ))}
@@ -347,16 +371,17 @@ export default function CategoryClient({
               <div className="workspace-toolbar">
                 <div>
                   <h3 style={{ margin: 0 }}>{activeFramework.name}</h3>
-                  <p className="muted" style={{ margin: "4px 0 0" }}>
-                    Edit vendors, criteria, weights, and scores directly in the matrix.
-                  </p>
                 </div>
                 <a className="export-button" href={`/api/frameworks/${activeFramework.id}/export`}>
                   Export PDF
                 </a>
               </div>
-              <div className="workspace-meta">
-                <label className="workspace-meta-field">
+              <div className="workspace-meta workspace-meta-inline">
+                <div className="workspace-meta-item">
+                  <span className="workspace-meta-label">Date</span>
+                  <strong>{new Date(activeFramework.updatedAt).toLocaleDateString()}</strong>
+                </div>
+                <label className="workspace-meta-field workspace-meta-item">
                   Client name
                   <input
                     defaultValue={activeFramework.clientName ?? ""}
@@ -365,117 +390,232 @@ export default function CategoryClient({
                   />
                 </label>
               </div>
-
-              <div className="workspace-actions">
-                <button type="button" onClick={addTool}>
-                  Add vendor
-                </button>
-                <button type="button" onClick={addCriterion}>
-                  Add criterion
-                </button>
-                <button type="button" onClick={addStackItem}>
-                  Add stack item
-                </button>
-              </div>
-
               <div className="report-card">
                 <div className="report-card-head">
-                  <h4>Current client stack</h4>
-                  <div className="preset-stack-actions">
-                    {getCategoryPresets(category.slug).map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        className="preset-chip"
-                        onClick={() => addPresetStackItem(preset)}
-                      >
-                        + {preset.name}
-                      </button>
-                    ))}
+                  <div>
+                    <h4 style={{ marginBottom: 4 }}>Section 1. Client's current stack</h4>
                   </div>
                 </div>
-                <p className="muted" style={{ marginTop: 0 }}>
-                  Capture the tools the client already uses and what each one is doing in the process.
-                </p>
-                <div className="stack-list">
-                  {activeFramework.stackItems.length === 0 && <p className="muted">No current stack items added yet.</p>}
-                  {activeFramework.stackItems.map((item) => (
-                    <div key={item.id} className="stack-item">
-                      <input
-                        className="matrix-inline-input"
-                        defaultValue={item.name}
-                        onBlur={(e) => renameStackItem(item.id, "name", e.target.value)}
-                      />
-                      <input
-                        className="matrix-inline-input"
-                        defaultValue={item.role ?? ""}
-                        placeholder="Role"
-                        onBlur={(e) => renameStackItem(item.id, "role", e.target.value)}
-                      />
-                      <input
-                        className="matrix-inline-input"
-                        defaultValue={item.notes ?? ""}
-                        placeholder="Notes"
-                        onBlur={(e) => renameStackItem(item.id, "notes", e.target.value)}
-                      />
-                      <button type="button" className="matrix-delete" onClick={() => deleteStackItem(item.id)}>
-                        Remove
+                <div className="intake-layout">
+                <div className="stack-create-panel">
+                  <div className="stack-create-panel-head">
+                    <strong>Add item</strong>
+                  </div>
+                    <div className="stack-create-grid">
+                      <label className="workspace-meta-field">
+                        Purpose
+                        <input
+                          list="stack-purpose-list"
+                          placeholder="e.g. Intake"
+                          value={purposeDraft.purpose}
+                          onChange={(e) => setPurposeDraft((current) => ({ ...current, purpose: e.target.value }))}
+                        />
+                      </label>
+                      <label className="workspace-meta-field">
+                        Tool / stack item
+                        <input
+                          placeholder="e.g. Outlook"
+                          value={purposeDraft.toolName}
+                          onChange={(e) => setPurposeDraft((current) => ({ ...current, toolName: e.target.value }))}
+                        />
+                      </label>
+                      <label className="workspace-meta-field stack-notes-field">
+                        Notes
+                        <input
+                          placeholder="What does it do for this purpose?"
+                          value={purposeDraft.notes}
+                          onChange={(e) => setPurposeDraft((current) => ({ ...current, notes: e.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <div className="stack-create-footer">
+                      <button
+                        type="button"
+                        className="framework-action framework-action-add framework-action-add-inline"
+                        onClick={addStackItem}
+                        aria-label="Add stack item"
+                      >
+                        +
                       </button>
                     </div>
-                    ))}
+                  </div>
+
+                  <div className="stack-list-panel">
+                    <div className="stack-list-panel-head">
+                      <strong>Current stack</strong>
+                      <span className="muted">
+                        {currentStack.length} item{currentStack.length === 1 ? "" : "s"}
+                      </span>
+                    </div>
+                    <div className="stack-grid">
+                      <div className="stack-grid-head">
+                        <span>Purpose</span>
+                        <span>Tool</span>
+                        <span>Notes</span>
+                      </div>
+                      {currentStack.length === 0 && (
+                        <div className="muted stack-grid-empty">No current stack items added yet.</div>
+                      )}
+                      {currentStack.map((item) => (
+                        <div key={item.id} className="stack-grid-row">
+                          <input className="stack-grid-cell stack-grid-purpose" defaultValue={item.role ?? "General"} readOnly />
+                          <input className="stack-grid-cell stack-grid-tool" defaultValue={item.name} readOnly />
+                          <div className="stack-grid-notes-cell">
+                            <input
+                              className="stack-grid-cell stack-grid-notes"
+                              defaultValue={item.notes ?? ""}
+                              placeholder="Add notes"
+                              onBlur={(e) => renameStackItem(item.id, "notes", e.target.value)}
+                            />
+                            <button
+                              type="button"
+                              className="framework-action framework-action-delete stack-grid-remove-inline"
+                              onClick={() => deleteStackItem(item.id)}
+                              aria-label="Remove current stack item"
+                            >
+                              -
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               </div>
 
               <div className="report-card">
-                <h4>Gap to target stack</h4>
-                <p className="muted" style={{ marginTop: 0 }}>
-                  This section highlights the next tools or controls that typically close process gaps for this category.
-                </p>
-                <div className="gap-summary-grid">
-                  <div>
-                    <strong>Immediate additions</strong>
-                    <ul className="gap-list">
-                      {targetStackIdeas.map((preset) => (
-                        <li key={preset.name}>
-                          <strong>{preset.name}</strong>
-                          <span>{preset.role}</span>
-                        </li>
-                      ))}
-                    </ul>
+                <h4>Section 2: Gap to Target</h4>
+                <div className="gap-create-panel">
+                  <div className="stack-create-panel-head">
+                    <strong>Add gap item</strong>
                   </div>
-                  <div>
-                    <strong>Capability gaps</strong>
-                    <ul className="gap-list">
-                      {coverageGaps.length === 0 && <li>Coverage is broadly balanced across the current matrix.</li>}
-                      {coverageGaps.map(({ criterion, average }) => (
-                        <li key={criterion.id}>
-                          <strong>{criterion.name}</strong>
-                          <span>
-                            Average score {average.toFixed(1)} / 5
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="stack-create-grid gap-create-grid">
+                    <label className="workspace-meta-field">
+                      Gap item
+                      <input
+                        placeholder="e.g. Need a triage step for intake"
+                        value={gapDraft.title}
+                        onChange={(e) => setGapDraft((current) => ({ ...current, title: e.target.value }))}
+                      />
+                    </label>
+                    <label className="workspace-meta-field stack-notes-field">
+                      Notes
+                      <input
+                        placeholder="What did the client say?"
+                        value={gapDraft.notes}
+                        onChange={(e) => setGapDraft((current) => ({ ...current, notes: e.target.value }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="stack-create-footer">
+                    <button
+                      type="button"
+                      className="framework-action framework-action-add framework-action-add-inline"
+                      onClick={addGapItem}
+                      aria-label="Add gap item"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="gap-list-panel">
+                  <div className="stack-list-panel-head">
+                    <strong>Gap items</strong>
+                    <span className="muted">
+                      {gapItems.length} item{gapItems.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  <div className="gap-grid">
+                    <div className="gap-grid-head">
+                      <span>Gap item</span>
+                      <span>Notes</span>
+                      <span aria-hidden="true" />
+                    </div>
+                    {gapItems.length === 0 && <div className="muted stack-grid-empty">No gap items added yet.</div>}
+                    {gapItems.map((item) => (
+                      <div key={item.id} className="gap-grid-row">
+                        <input
+                          className="gap-grid-title"
+                          defaultValue={item.title}
+                          onBlur={(e) => renameGapItem(item.id, "title", e.target.value)}
+                          placeholder="Gap item"
+                        />
+                        <input
+                          className="gap-grid-notes"
+                          defaultValue={item.notes ?? ""}
+                          onBlur={(e) => renameGapItem(item.id, "notes", e.target.value)}
+                          placeholder="Notes"
+                        />
+                        <button
+                          type="button"
+                          className="framework-action framework-action-delete gap-grid-remove"
+                          onClick={() => deleteGapItem(item.id)}
+                          aria-label="Remove gap item"
+                        >
+                          -
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
 
-              <div className="workspace-table-wrap">
-                <table>
+              <div className="report-card matrix-card">
+                <div className="workspace-header">
+                  <div>
+                    <h4 style={{ marginBottom: 4 }}>Section 3: Scoring Matrix</h4>
+                  </div>
+                  <div className="matrix-toolbar">
+                    <button type="button" className="matrix-action-button" onClick={addTool}>
+                      + Vendor
+                    </button>
+                    <button type="button" className="matrix-action-button" onClick={addCriterion}>
+                      + Criterion
+                    </button>
+                  </div>
+                </div>
+                <div className="score-rubric">
+                  <strong>Score rubric</strong>
+                  <div className="score-rubric-grid">
+                    <div><span>1</span><p>Not present / no meaningful fit</p></div>
+                    <div><span>2</span><p>Weak fit with major gaps</p></div>
+                    <div><span>3</span><p>Acceptable fit with some gaps</p></div>
+                    <div><span>4</span><p>Strong fit with minor gaps</p></div>
+                    <div><span>5</span><p>Excellent fit / fully meets the need</p></div>
+                  </div>
+                </div>
+                <div className="workspace-table-wrap">
+                  <table>
                   <thead>
                     <tr>
                       <th>Criterion</th>
                       <th>Weight</th>
-                      {activeFramework.tools.map((tool) => (
-                        <th key={tool.id}>
+                      {orderedTools.map((tool) => (
+                        <th
+                          key={tool.id}
+                          className={draggedToolId === tool.id ? "tool-drop-target active" : "tool-drop-target"}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => onToolDrop(tool.id)}
+                        >
                           <div className="matrix-header">
+                            <button
+                              type="button"
+                              className="tool-drag-handle"
+                              draggable
+                              onDragStart={() => onToolDragStart(tool.id)}
+                              onDragEnd={() => setDraggedToolId(null)}
+                              aria-label={`Move ${tool.name}`}
+                              title="Drag to reorder"
+                            >
+                              ⋮⋮
+                            </button>
                             <input
                               className="matrix-inline-input"
                               defaultValue={tool.name}
                               onBlur={(e) => renameTool(tool.id, e.target.value)}
                             />
-                            <button type="button" className="matrix-delete" onClick={() => deleteTool(tool.id)}>
-                              Remove
+                            <button type="button" className="framework-action framework-action-delete" onClick={() => deleteTool(tool.id)}>
+                              -
                             </button>
                           </div>
                         </th>
@@ -486,19 +626,21 @@ export default function CategoryClient({
                     {activeFramework.criteria.map((criterion) => (
                       <tr key={criterion.id}>
                         <td>
-                          <div className="matrix-row-label">
-                            <input
-                              className="matrix-inline-input"
-                              defaultValue={criterion.name}
-                              onBlur={(e) => renameCriterion(criterion.id, e.target.value)}
-                            />
-                            <button
-                              type="button"
-                              className="matrix-delete"
-                              onClick={() => deleteCriterion(criterion.id)}
-                            >
-                              Remove
-                            </button>
+                          <div className="criterion-cell">
+                            <div className="matrix-row-label">
+                              <input
+                                className="matrix-inline-input"
+                                defaultValue={criterion.name}
+                                onBlur={(e) => renameCriterion(criterion.id, e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                className="framework-action framework-action-delete"
+                                onClick={() => deleteCriterion(criterion.id)}
+                              >
+                                -
+                              </button>
+                            </div>
                           </div>
                         </td>
                         <td>
@@ -509,10 +651,10 @@ export default function CategoryClient({
                             min={0}
                             max={1}
                             defaultValue={criterion.weight}
-                            onBlur={(e) => updateWeight(criterion.id, e.target.value)}
+                            onBlur={(e) => saveCriterionWeights(criterion.id, Number(e.target.value))}
                           />
                         </td>
-                        {activeFramework.tools.map((tool) => (
+                        {orderedTools.map((tool) => (
                           <td key={tool.id}>
                             <input
                               className="score-input"
@@ -531,14 +673,15 @@ export default function CategoryClient({
                         <strong>Ranking</strong>
                       </td>
                       <td />
-                      {activeFramework.tools.map((tool) => (
+                      {orderedTools.map((tool) => (
                         <td key={tool.id}>
                           <strong>{ranked.find((row) => row.tool.id === tool.id)?.total.toFixed(2) ?? "0.00"}</strong>
                         </td>
                       ))}
                     </tr>
                   </tbody>
-                </table>
+                  </table>
+                </div>
               </div>
 
               <div className="report-card">
@@ -547,8 +690,7 @@ export default function CategoryClient({
                   Top ranked vendor: <strong>{ranked[0]?.tool.name ?? "N/A"}</strong>
                 </p>
                 <p className="muted" style={{ marginBottom: 0 }}>
-                  Suggested next step: <strong>{targetStackIdeas[0]?.name ?? "Refine current controls"}</strong>
-                  {targetStackIdeas[0] ? ` for ${targetStackIdeas[0].role.toLowerCase()}.` : "."}
+                  Suggested next step: review the consultant-authored gap items before adjusting the matrix.
                 </p>
               </div>
             </>

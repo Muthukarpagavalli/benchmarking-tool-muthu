@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
-import { getQuickStats } from "@/lib/stats";
 import PeersClient from "./PeersClient";
+
+export const dynamic = "force-dynamic";
 
 export default async function PeersPage() {
   const [peerFirms, categories, tools, adoptions] = await Promise.all([
@@ -12,7 +13,6 @@ export default async function PeersPage() {
       orderBy: { dateLogged: "desc" },
     }),
   ]);
-  const stats = await getQuickStats();
 
   return (
     <PeersClient
@@ -23,7 +23,12 @@ export default async function PeersPage() {
         ...adoption,
         dateLogged: adoption.dateLogged.toISOString(),
       }))}
-      stats={stats}
+      stats={{
+        categories: categories.length,
+        tools: tools.length,
+        peerFirms: peerFirms.length,
+        sightings: adoptions.length,
+      }}
     />
   );
 }

@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -9,25 +8,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "frameworkId, toolId and criterionId required" }, { status: 400 });
   }
 
-  const existing = (await prisma.$queryRaw`
-    SELECT TOP 1 id
-    FROM ScoringFrameworkScore
-    WHERE frameworkId = ${frameworkId} AND toolId = ${toolId} AND criterionId = ${criterionId}
-  `) as Array<{ id: string }>;
+  const existing = await prisma.scoringFrameworkScore.findFirst({
+    where: { frameworkId, toolId, criterionId },
+  });
 
-  if (existing[0]) {
-    await prisma.$executeRaw`
-      UPDATE ScoringFrameworkScore
-      SET score = ${score}
-      WHERE id = ${existing[0].id}
-    `;
-    return NextResponse.json({ id: existing[0].id, frameworkId, toolId, criterionId, score });
+  if (existing) {
+    const updated = await prisma.scoringFrameworkScore.update({
+      where: { id: existing.id },
+      data: { score },
+    });
+    return NextResponse.json(updated);
   }
 
-  const id = randomUUID();
-  await prisma.$executeRaw`
-    INSERT INTO ScoringFrameworkScore (id, frameworkId, toolId, criterionId, score)
-    VALUES (${id}, ${frameworkId}, ${toolId}, ${criterionId}, ${score})
-  `;
-  return NextResponse.json({ id, frameworkId, toolId, criterionId, score });
+  const created = await prisma.scoringFrameworkScore.create({
+    data: { frameworkId, toolId, criterionId, score },
+  });
+  return NextResponse.json(created);
 }
