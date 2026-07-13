@@ -1,4 +1,7 @@
-# Legal tech benchmarking tool example project
+# benchmarking-tool-muthu
+Legal tech benchmarking workspace for law firms to track tools, compare vendors, score solutions, log news and peer adoption, and generate client-ready PDF reports. It helps legal tech teams evaluate software more consistently, spot gaps in their stack, and communicate recommendations clearly.
+
+## Overview
 
 This is a Next.js + Prisma app for:
 
@@ -13,7 +16,7 @@ For a free deployment, use:
 1. `Vercel Hobby` for the app
 2. `Supabase Free` for the database
 
-That setup works better than the current local SQL Server approach because Prisma supports PostgreSQL and Supabase provides a free hosted Postgres database.
+That setup works better than the old local SQL Server approach because Prisma supports PostgreSQL and Supabase provides a free hosted Postgres database.
 
 ## Prerequisites
 
@@ -64,6 +67,6 @@ Open `http://localhost:3000`
 
 ## Notes
 
-- The database is now configured for PostgreSQL instead of SQL Server.
+- The database is configured for PostgreSQL instead of SQL Server.
 - The old local Docker SQL Server workflow is no longer the recommended path for hosting.
 - Supabase Free is suitable for demos and low-traffic sharing, but it pauses inactive projects after a period of inactivity.
