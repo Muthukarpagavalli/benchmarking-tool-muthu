@@ -40,9 +40,11 @@ if (fs.existsSync(packageJson)) {
 
 const serverDir = path.join(distDir, "server");
 fs.mkdirSync(serverDir, { recursive: true });
+const serverBootstrap = fs.readFileSync(path.join(standaloneDir, "server.js"), "utf8")
+  .replace("const dir = path.join(__dirname)", "const dir = path.join(__dirname, '..')");
 fs.writeFileSync(
   path.join(serverDir, "index.js"),
-  "import '../server.js';\n",
+  serverBootstrap,
   "utf8"
 );
 
