@@ -38,3 +38,25 @@ if (fs.existsSync(packageJson)) {
   fs.copyFileSync(packageJson, path.join(distDir, "package.json"));
 }
 
+const serverDir = path.join(distDir, "server");
+fs.mkdirSync(serverDir, { recursive: true });
+fs.writeFileSync(
+  path.join(serverDir, "index.js"),
+  "require('../server.js');\n",
+  "utf8"
+);
+
+const openAiDir = path.join(distDir, ".openai");
+fs.mkdirSync(openAiDir, { recursive: true });
+fs.writeFileSync(
+  path.join(openAiDir, "hosting.json"),
+  JSON.stringify(
+    {
+      project_id: "appgprj_6a550e789adc81918c85fa461f4ba6d9",
+      build_output: "dist",
+    },
+    null,
+    2
+  ),
+  "utf8"
+);
