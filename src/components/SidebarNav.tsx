@@ -12,7 +12,7 @@ export default function SidebarNav() {
   const pathname = usePathname();
 
   return (
-    <>
+    <nav className="sidebar-nav" aria-label="Primary">
       {links.map((link) => {
         const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
 
@@ -22,6 +22,6 @@ export default function SidebarNav() {
           </a>
         );
       })}
-    </>
+    </nav>
   );
 }

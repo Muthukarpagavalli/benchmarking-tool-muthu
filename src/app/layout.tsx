@@ -11,10 +11,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         <div className="app-shell">
           <div className="sidebar">
-            <h1>Knowledge Bank</h1>
+            <div className="sidebar-brand">
+              <div className="sidebar-brand-mark">KB</div>
+              <div>
+                <h1>Knowledge Bank</h1>
+                <p>Benchmarking workspace</p>
+              </div>
+            </div>
             <SidebarNav />
           </div>
-          <div className="main-area">{children}</div>
+          <div className="main-area">
+            <div className="main-frame">{children}</div>
+          </div>
         </div>
       </body>
     </html>

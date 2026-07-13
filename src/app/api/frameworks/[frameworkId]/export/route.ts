@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 
 const PAGE_WIDTH = 842;
 const PAGE_HEIGHT = 595;
-const MARGIN = 24;
+const MARGIN = 28;
 
 type PdfPage = string;
 
@@ -44,6 +44,30 @@ function rectOps(x: number, y: number, w: number, h: number, fill: [number, numb
   if (stroke) ops.push(`q ${stroke[0]} ${stroke[1]} ${stroke[2]} RG 1 w ${x} ${y} ${w} ${h} re S Q`);
   ops.push("Q");
   return ops.join("\n");
+}
+
+function topBar(text: string, x: number, y: number, w: number, h: number) {
+  return [
+    rectOps(x, y, w, h, [0.25, 0.39, 0.30], [0.21, 0.33, 0.25]),
+    textOps([text], x + 12, y + h - 16, 12, 2, [1, 1, 1]),
+  ].join("\n");
+}
+
+function panel(
+  title: string,
+  lines: string[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  bodyLimit: number,
+  bodySize = 9
+) {
+  return [
+    rectOps(x, y, w, h, [1, 1, 1], [0.84, 0.89, 0.84]),
+    topBar(title, x, y + h - 24, w, 24),
+    textOps(lines.flatMap((line) => wrapText(line, bodyLimit)), x + 12, y + h - 40, bodySize, 1, [0.18, 0.21, 0.18]),
+  ].join("\n");
 }
 
 function buildPdf(pages: PdfPage[]) {
@@ -112,32 +136,33 @@ function tableSection(
   headerSize = 9.2,
   bodySize = 8.6
 ) {
-  const headerH = 18;
-  const rowH = rows.length ? 18 : 14;
-  const h = 34 + headerH + rows.length * rowH;
+  const headerH = 20;
+  const rowH = rows.length ? 20 : 16;
+  const titleH = title.trim() ? 24 : 0;
+  const h = 16 + titleH + headerH + rows.length * rowH;
   const top = y + h;
   let output = rectOps(x, y, w, h, [1, 1, 1], [0.84, 0.89, 0.84]);
   if (title.trim()) {
-    output += `\n${rectOps(x, top - 28, w, 28, headingFill, headingFill)}`;
-    output += `\n${textOps([title], x + 10, top - 10, 12, 2, headingText)}`;
+    output += `\n${rectOps(x, top - 24, w, 24, headingFill, headingFill)}`;
+    output += `\n${textOps([title], x + 12, top - 9, 11.5, 2, headingText)}`;
   }
 
   let cursorX = x;
-  const headerY = title.trim() ? top - 42 : top - 14;
-  output += `\n${rectOps(x + 1, headerY - 12, w - 2, headerH, [0.975, 0.988, 0.975], [0.88, 0.92, 0.88])}`;
+  const headerY = title.trim() ? top - 40 : top - 18;
+  output += `\n${rectOps(x + 1, headerY - 14, w - 2, headerH, [0.978, 0.985, 0.977], [0.88, 0.92, 0.88])}`;
   for (let i = 0; i < headers.length; i++) {
-    output += `\n${textOps([headers[i]], cursorX + 10, headerY - 1, headerSize, 2, [0.15, 0.28, 0.19])}`;
+    output += `\n${textOps([headers[i]], cursorX + 10, headerY - 2, headerSize, 2, [0.15, 0.28, 0.19])}`;
     cursorX += colWidths[i] ?? 0;
   }
 
-  const startY = headerY - 16;
+  const startY = headerY - 18;
   rows.forEach((row, rowIndex) => {
     const rowTop = startY - rowIndex * rowH;
     output += `\n${rectOps(x + 1, rowTop - rowH + 1, w - 2, rowH, [1, 1, 1], [0.89, 0.93, 0.89])}`;
     let cellX = x;
     for (let col = 0; col < headers.length; col++) {
       const cellText = row[col] ?? "";
-      output += `\n${textOps([cellText], cellX + 10, rowTop - 8, bodySize)}`;
+      output += `\n${textOps(wrapText(cellText, Math.max(12, Math.floor((colWidths[col] ?? 100) / 6.8))), cellX + 10, rowTop - 8, bodySize)}`;
       cellX += colWidths[col] ?? 0;
     }
   });
@@ -153,14 +178,14 @@ function sectionTitle(title: string, x: number, y: number, w: number) {
 }
 
 function pageHeader(displayName: string, dateLabel: string) {
-  const headerHeight = 58;
+  const headerHeight = 64;
   const topY = PAGE_HEIGHT - headerHeight;
   return [
     rectOps(0, 0, PAGE_WIDTH, PAGE_HEIGHT, [0.99, 0.99, 0.98]),
     rectOps(0, topY, PAGE_WIDTH, headerHeight, [0.25, 0.39, 0.30]),
-    textOps([`Scoring framework report for ${displayName}`], MARGIN, PAGE_HEIGHT - 23, 10.5, 2, [0.92, 0.96, 0.92]),
-    textOps(["CLM Evaluation"], MARGIN, PAGE_HEIGHT - 40, 18, 2, [1, 1, 1]),
-    textOps([`Client presentation export | ${dateLabel}`], PAGE_WIDTH - 190, PAGE_HEIGHT - 23, 9, 1, [0.93, 0.96, 0.93]),
+    textOps([`Scoring framework report for ${displayName}`], MARGIN, PAGE_HEIGHT - 24, 10.5, 2, [0.92, 0.96, 0.92]),
+    textOps(["CLM Evaluation"], MARGIN, PAGE_HEIGHT - 43, 20, 2, [1, 1, 1]),
+    textOps([`Client presentation export | ${dateLabel}`], PAGE_WIDTH - 184, PAGE_HEIGHT - 24, 9, 1, [0.93, 0.96, 0.93]),
   ].join("\n");
 }
 
@@ -173,51 +198,25 @@ function chunkRows(rows: string[][], maxRows: number) {
 }
 
 export async function GET(_req: NextRequest, { params }: { params: { frameworkId: string } }) {
-  const frameworkRows = (await prisma.$queryRaw`
-    SELECT f.id, f.categoryId, f.name, f.clientName, c.name AS categoryName, c.slug AS categorySlug
-    FROM ScoringFramework f
-    INNER JOIN Category c ON c.id = f.categoryId
-    WHERE f.id = ${params.frameworkId}
-  `) as Array<{ id: string; categoryId: string; name: string; clientName: string | null; categoryName: string; categorySlug: string }>;
-  const framework = frameworkRows[0];
+  const framework = await prisma.scoringFramework.findUnique({
+    where: { id: params.frameworkId },
+    include: {
+      category: true,
+      tools: { orderBy: { sortOrder: "asc" } },
+      criteria: { orderBy: { sortOrder: "asc" } },
+      scores: true,
+      stackItems: { orderBy: { sortOrder: "asc" } },
+      gapItems: { orderBy: { sortOrder: "asc" } },
+    },
+  });
   if (!framework) return new Response("Framework not found", { status: 404 });
 
-  const tools = (await prisma.$queryRaw`
-    SELECT id, name
-    FROM ScoringFrameworkTool
-    WHERE frameworkId = ${params.frameworkId}
-    ORDER BY sortOrder ASC
-  `) as Array<{ id: string; name: string }>;
-  const criteria = (await prisma.$queryRaw`
-    SELECT id, name, description, weight
-    FROM ScoringFrameworkCriterion
-    WHERE frameworkId = ${params.frameworkId}
-    ORDER BY sortOrder ASC
-  `) as Array<{ id: string; name: string; description: string | null; weight: number }>;
-  const scores = (await prisma.$queryRaw`
-    SELECT toolId, criterionId, score
-    FROM ScoringFrameworkScore
-    WHERE frameworkId = ${params.frameworkId}
-  `) as Array<{ toolId: string; criterionId: string; score: number | null }>;
-  const stackItems = (await prisma.$queryRaw`
-    SELECT name, role, notes
-    FROM ScoringFrameworkStackItem
-    WHERE frameworkId = ${params.frameworkId}
-    ORDER BY sortOrder ASC
-  `) as Array<{ name: string; role: string | null; notes: string | null }>;
-  const gapItems = (await prisma.$queryRaw`
-    SELECT title, notes
-    FROM ScoringFrameworkGapItem
-    WHERE frameworkId = ${params.frameworkId}
-    ORDER BY sortOrder ASC
-  `) as Array<{ title: string; notes: string | null }>;
-
   const displayName = framework.clientName?.trim() || framework.name;
-  const scoreMap = new Map(scores.map((score) => [`${score.toolId}:${score.criterionId}`, score.score]));
-  const totals = tools
+  const scoreMap = new Map(framework.scores.map((score) => [`${score.toolId}:${score.criterionId}`, score.score]));
+  const totals = framework.tools
     .map((tool) => {
       let total = 0;
-      for (const criterion of criteria) {
+      for (const criterion of framework.criteria) {
         const score = scoreMap.get(`${tool.id}:${criterion.id}`);
         if (score !== null && score !== undefined) total += score * criterion.weight;
       }
@@ -225,47 +224,47 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
     })
     .sort((a, b) => b.total - a.total);
   const topVendor = totals[0]?.tool ?? "N/A";
-  const topGaps = criteria
+  const topGaps = framework.criteria
     .map((criterion) => {
-      const values = tools.map((tool) => scoreMap.get(`${tool.id}:${criterion.id}`)).filter((v): v is number => typeof v === "number");
+      const values = framework.tools
+        .map((tool) => scoreMap.get(`${tool.id}:${criterion.id}`))
+        .filter((v): v is number => typeof v === "number");
       const avg = values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
       return { criterion, avg };
     })
     .sort((a, b) => a.avg - b.avg)
     .slice(0, 4);
 
-  const maxScore = criteria.reduce((sum, criterion) => sum + criterion.weight * 5, 0);
   const dateLabel = new Date().toLocaleDateString();
-  const currentStackLines = stackItems.length ? stackItems.slice(0, 4).map((item) => item.name) : ["No current stack items captured yet."];
-  const gapItemLines = gapItems.length ? gapItems.map((item) => item.title) : ["No gap items captured yet."];
+  const currentStackLines = framework.stackItems.length ? framework.stackItems.slice(0, 4).map((item) => item.name) : ["No current stack items captured yet."];
+  const gapItemLines = framework.gapItems.length ? framework.gapItems.map((item) => item.title) : ["No gap items captured yet."];
   const headerHeight = 58;
-  const overviewH = 64;
+  const overviewH = 86;
   const topY = PAGE_HEIGHT - headerHeight;
   const overviewY = PAGE_HEIGHT - headerHeight - overviewH - 12;
-  const stackY = 352;
-  const scoreY = 230;
-  const vendorY = 102;
-  const leftW = 380;
-  const gap = 10;
+  const stackY = 300;
+  const leftW = 382;
+  const gap = 12;
   const rightW = PAGE_WIDTH - MARGIN * 2 - leftW - gap;
 
   const firstPage = [
     pageHeader(displayName, dateLabel),
-    rectOps(MARGIN, overviewY, PAGE_WIDTH - MARGIN * 2, 64, [1, 1, 1], [0.84, 0.89, 0.84]),
-    textOps(["Framework overview"], MARGIN + 12, overviewY + 44, 12, 2, [0.15, 0.28, 0.19]),
-    textOps(
+    panel(
+      "Framework overview",
       [
         `Framework: ${framework.name}`,
         `Client name: ${framework.clientName?.trim() || "N/A"}`,
         `Top recommendation: ${topVendor}`,
       ],
-      MARGIN + 12,
-      overviewY + 28,
-      9.1
+      MARGIN,
+      overviewY,
+      PAGE_WIDTH - MARGIN * 2,
+      overviewH,
+      58,
+      9.3
     ),
-
-    section("Current stack", currentStackLines, MARGIN, stackY, leftW, 88, 42),
-    section("Gap items", gapItemLines, MARGIN + leftW + gap, stackY, rightW, 88, 42),
+    panel("Current stack", currentStackLines, MARGIN, stackY, leftW, 118, 38, 9),
+    panel("Gap items", gapItemLines, MARGIN + leftW + gap, stackY, rightW, 118, 38, 9),
   ].join("\n");
 
   const scoreRows = topGaps.length ? topGaps.map((row) => [row.criterion.name, `${row.avg.toFixed(1)} / 5`]) : [["No major score gaps detected.", ""]];
@@ -284,9 +283,9 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
           ["Capability", "Avg score"],
           chunk,
           MARGIN,
-          235,
+          214,
           PAGE_WIDTH - MARGIN * 2,
-          [PAGE_WIDTH - MARGIN * 2 - 210, 210],
+          [PAGE_WIDTH - MARGIN * 2 - 220, 220],
           [0.25, 0.39, 0.30],
           [1, 1, 1]
         ),
@@ -304,16 +303,17 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
           ["Rank", "Vendor", "Score"],
           chunk,
           MARGIN,
-          isLast ? 172 : 220,
+          isLast ? 148 : 206,
           PAGE_WIDTH - MARGIN * 2,
-          [52, 470, 120],
+          [60, 430, 140],
           [0.25, 0.39, 0.30],
           [1, 1, 1]
         ),
         ...(isLast
           ? [
-              rectOps(MARGIN, 18, PAGE_WIDTH - MARGIN * 2, 56, [0.25, 0.39, 0.30], [0.21, 0.33, 0.25]),
-              textOps([`Recommendation summary: ${topVendor} is the strongest fit for the current framework.`], MARGIN + 10, 50, 9.8, 2, [1, 1, 1]),
+              rectOps(MARGIN, 18, PAGE_WIDTH - MARGIN * 2, 60, [0.25, 0.39, 0.30], [0.21, 0.33, 0.25]),
+              textOps([`Recommendation summary`], MARGIN + 12, 62, 11.2, 2, [1, 1, 1]),
+              textOps([`${topVendor} is the strongest fit for the current framework.`], MARGIN + 12, 46, 9.8, 1, [0.95, 0.98, 0.95]),
             ]
           : []),
       ].join("\n")
