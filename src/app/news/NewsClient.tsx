@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Category = { id: string; slug: string; name: string };
@@ -63,6 +63,17 @@ export default function NewsClient({
   const [newFeatureTypeName, setNewFeatureTypeName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
+  const [formErrors, setFormErrors] = useState<Partial<Record<"category" | "tool" | "date" | "type" | "summary" | "sourceUrl" | "loggedBy", string>>>({});
+  const categorySelectRef = useRef<HTMLSelectElement | null>(null);
+  const categoryInputRef = useRef<HTMLInputElement | null>(null);
+  const toolSelectRef = useRef<HTMLSelectElement | null>(null);
+  const toolInputRef = useRef<HTMLInputElement | null>(null);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
+  const typeSelectRef = useRef<HTMLSelectElement | null>(null);
+  const typeInputRef = useRef<HTMLInputElement | null>(null);
+  const summaryInputRef = useRef<HTMLInputElement | null>(null);
+  const sourceUrlInputRef = useRef<HTMLInputElement | null>(null);
+  const loggedByInputRef = useRef<HTMLInputElement | null>(null);
   const [form, setForm] = useState({
     categoryId: categories[0]?.id ?? "",
     toolId: "",
@@ -131,8 +142,51 @@ export default function NewsClient({
 
   async function submit() {
     const categoryName = newCategoryName.trim();
-    if (!form.summary || !form.loggedBy) return;
-    if (categoryChoice === "new" && !categoryName) return;
+    const errors: Partial<Record<"category" | "tool" | "date" | "type" | "summary" | "sourceUrl" | "loggedBy", string>> = {};
+    if (categoryChoice === "new") {
+      if (!categoryName) errors.category = "fill this";
+    } else if (!form.categoryId) {
+      errors.category = "fill this";
+    }
+    if (categoryChoice === "existing" && !form.toolId) errors.tool = "fill this";
+    if (!form.date) errors.date = "fill this";
+    if (!form.updateType) errors.type = "fill this";
+    if (!form.summary.trim()) errors.summary = "fill this";
+    if (!form.sourceUrl.trim()) errors.sourceUrl = "fill this";
+    if (!form.loggedBy.trim()) errors.loggedBy = "fill this";
+    setFormErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      requestAnimationFrame(() => {
+        if (errors.category) {
+          if (categoryChoice === "new") {
+            categoryInputRef.current?.focus();
+          } else {
+            categorySelectRef.current?.focus();
+          }
+        } else if (errors.tool) {
+          if (toolChoice === "new") {
+            toolInputRef.current?.focus();
+          } else {
+            toolSelectRef.current?.focus();
+          }
+        } else if (errors.date) {
+          dateInputRef.current?.focus();
+        } else if (errors.type) {
+          if (typeChoice === "new") {
+            typeInputRef.current?.focus();
+          } else {
+            typeSelectRef.current?.focus();
+          }
+        } else if (errors.summary) {
+          summaryInputRef.current?.focus();
+        } else if (errors.sourceUrl) {
+          sourceUrlInputRef.current?.focus();
+        } else if (errors.loggedBy) {
+          loggedByInputRef.current?.focus();
+        }
+      });
+      return;
+    }
     setSubmitting(true);
     await fetch("/api/news", {
       method: "POST",
@@ -144,6 +198,7 @@ export default function NewsClient({
       }),
     });
     setSubmitting(false);
+    setFormErrors({});
     setForm((f) => ({ ...f, summary: "", sourceUrl: "" }));
     setNewCategoryName("");
     setCategoryChoice("existing");
@@ -390,6 +445,8 @@ export default function NewsClient({
               <label className="news-field">
                 <span>Category</span>
                 <select
+                  ref={categorySelectRef}
+                  className={formErrors.category ? "news-invalid" : ""}
                   value={categoryChoice === "new" ? "__new__" : form.categoryId || "__select__"}
                   onChange={(e) => {
                     if (e.target.value === "__new__") {
@@ -416,9 +473,14 @@ export default function NewsClient({
                 {categoryChoice === "new" && (
                   <div className="form-row">
                     <input
+                      ref={categoryInputRef}
+                      className={formErrors.category ? "news-invalid" : ""}
                       placeholder="New category name"
                       value={newCategoryName}
-                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      onChange={(e) => {
+                        setNewCategoryName(e.target.value);
+                        if (formErrors.category) setFormErrors((current) => ({ ...current, category: undefined }));
+                      }}
                     />
                   </div>
                 )}
@@ -426,6 +488,8 @@ export default function NewsClient({
               <label className="news-field">
                 <span>Tool</span>
                 <select
+                  ref={toolSelectRef}
+                  className={formErrors.tool ? "news-invalid" : ""}
                   value={toolChoice === "new" ? "__new__" : form.toolId}
                   onChange={(e) => {
                     if (e.target.value === "__new__") {
@@ -448,7 +512,16 @@ export default function NewsClient({
                 </select>
                 {toolChoice === "new" && categoryChoice === "existing" && form.categoryId && (
                   <div className="form-row">
-                    <input placeholder="New tool name" value={newToolName} onChange={(e) => setNewToolName(e.target.value)} />
+                    <input
+                      ref={toolInputRef}
+                      className={formErrors.tool ? "news-invalid" : ""}
+                      placeholder="New tool name"
+                      value={newToolName}
+                      onChange={(e) => {
+                        setNewToolName(e.target.value);
+                        if (formErrors.tool) setFormErrors((current) => ({ ...current, tool: undefined }));
+                      }}
+                    />
                     <button type="button" className="framework-action framework-action-add" onClick={createTool} aria-label="Add tool">
                       +
                     </button>
@@ -457,11 +530,22 @@ export default function NewsClient({
               </label>
               <label className="news-field">
                 <span>Date</span>
-                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+                <input
+                  ref={dateInputRef}
+                  className={formErrors.date ? "news-invalid" : ""}
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => {
+                    setForm({ ...form, date: e.target.value });
+                    if (formErrors.date) setFormErrors((current) => ({ ...current, date: undefined }));
+                  }}
+                />
               </label>
               <label className="news-field">
                 <span>Type</span>
                 <select
+                  ref={typeSelectRef}
+                  className={formErrors.type ? "news-invalid" : ""}
                   value={typeChoice === "new" ? "__new__" : form.updateType || "__select__"}
                   onChange={(e) => {
                     if (e.target.value === "__select__") {
@@ -485,11 +569,20 @@ export default function NewsClient({
                       <option key={type} value={type}>
                         {type}
                       </option>
-                    ))}
+                  ))}
                 </select>
                 {typeChoice === "new" && (
                   <div className="form-row">
-                    <input placeholder="New feature type" value={newFeatureTypeName} onChange={(e) => setNewFeatureTypeName(e.target.value)} />
+                    <input
+                      ref={typeInputRef}
+                      className={formErrors.type ? "news-invalid" : ""}
+                      placeholder="New feature type"
+                      value={newFeatureTypeName}
+                      onChange={(e) => {
+                        setNewFeatureTypeName(e.target.value);
+                        if (formErrors.type) setFormErrors((current) => ({ ...current, type: undefined }));
+                      }}
+                    />
                     <button type="button" className="framework-action framework-action-add" onClick={createFeatureType} aria-label="Add feature type">
                       +
                     </button>
@@ -507,25 +600,40 @@ export default function NewsClient({
               <label className="news-field">
                 <span>Summary</span>
                 <input
+                  ref={summaryInputRef}
+                  className={formErrors.summary ? "news-invalid" : ""}
                   placeholder="Summary"
                   value={form.summary}
-                  onChange={(e) => setForm({ ...form, summary: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, summary: e.target.value });
+                    if (formErrors.summary) setFormErrors((current) => ({ ...current, summary: undefined }));
+                  }}
                 />
               </label>
               <label className="news-field">
                 <span>Source URL</span>
                 <input
+                  ref={sourceUrlInputRef}
+                  className={formErrors.sourceUrl ? "news-invalid" : ""}
                   placeholder="Source URL"
                   value={form.sourceUrl}
-                  onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, sourceUrl: e.target.value });
+                    if (formErrors.sourceUrl) setFormErrors((current) => ({ ...current, sourceUrl: undefined }));
+                  }}
                 />
               </label>
               <label className="news-field">
                 <span>Logged by</span>
                 <input
+                  ref={loggedByInputRef}
+                  className={formErrors.loggedBy ? "news-invalid" : ""}
                   placeholder="Logged by"
                   value={form.loggedBy}
-                  onChange={(e) => setForm({ ...form, loggedBy: e.target.value })}
+                  onChange={(e) => {
+                    setForm({ ...form, loggedBy: e.target.value });
+                    if (formErrors.loggedBy) setFormErrors((current) => ({ ...current, loggedBy: undefined }));
+                  }}
                 />
               </label>
               <button className="primary" onClick={submit} disabled={submitting}>

@@ -473,6 +473,11 @@ th { background: #f1efe9; font-weight: 600; }
 .news-field select {
   width: 100%;
 }
+.news-invalid {
+  border-color: #b64c4c !important;
+  background: #fff6f6 !important;
+  box-shadow: inset 0 0 0 1px rgba(182, 76, 76, 0.18);
+}
 
 .peer-sighting-row {
   align-items: end;
