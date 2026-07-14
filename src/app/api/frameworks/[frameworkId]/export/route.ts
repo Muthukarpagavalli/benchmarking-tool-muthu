@@ -13,7 +13,6 @@ type CriterionRow = {
   id: string;
   name: string;
   weight: number;
-  description: string | null;
   sortOrder: number;
 };
 
@@ -35,7 +34,6 @@ function wrapText(text: string, limit: number) {
     .split(/\s+/)
     .filter(Boolean);
   if (words.length === 0) return [""];
-
   const lines: string[] = [];
   let current = "";
   for (const word of words) {
@@ -84,7 +82,6 @@ function buildPdf(pages: Page[]) {
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
     "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
   ];
-
   pages.forEach((page, index) => {
     const pageObjNum = 5 + index * 2;
     const contentObjNum = pageObjNum + 1;
@@ -93,7 +90,6 @@ function buildPdf(pages: Page[]) {
       `<< /Length ${page.length} >>\nstream\n${page}\nendstream`
     );
   });
-
   let pdf = "%PDF-1.4\n";
   const offsets: number[] = [0];
   for (let i = 0; i < objects.length; i++) {
@@ -113,22 +109,21 @@ function safePdfName(text: string) {
   return text.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "framework_report";
 }
 
-function header(title: string, subtitle: string, pageNumber: number, totalPages: number) {
+function pageHeader(clientName: string, pageNumber: number, totalPages: number) {
   return [
     rectOps(0, 0, PAGE_WIDTH, PAGE_HEIGHT, [0.99, 0.99, 0.985]),
-    rectOps(0, PAGE_HEIGHT - 74, PAGE_WIDTH, 74, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
-    textOps([title], MARGIN, PAGE_HEIGHT - 22, { size: 20, font: 2, color: [1, 1, 1] }),
-    textOps([subtitle], MARGIN, PAGE_HEIGHT - 44, { size: 9.2, color: [0.92, 0.96, 0.92] }),
-    textOps([`Page ${pageNumber} of ${totalPages}`], PAGE_WIDTH - MARGIN - 90, PAGE_HEIGHT - 22, { size: 8.5, color: [0.92, 0.96, 0.92] }),
+    rectOps(0, PAGE_HEIGHT - 72, PAGE_WIDTH, 72, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
+    textOps([`CLM Evaluation Report for ${clientName}`], MARGIN, PAGE_HEIGHT - 24, { size: 18, font: 2, color: [1, 1, 1] }),
+    textOps([`Page ${pageNumber}`], PAGE_WIDTH - MARGIN - 40, PAGE_HEIGHT - 24, { size: 9, color: [0.93, 0.96, 0.93] }),
+    rectOps(0, 0, PAGE_WIDTH, FOOTER_HEIGHT, [0.985, 0.988, 0.982], [0.88, 0.91, 0.88]),
+    textOps([`Page ${pageNumber} of ${totalPages}`], PAGE_WIDTH - MARGIN - 84, 18, { size: 8.2, color: [0.26, 0.33, 0.27] }),
   ].join("\n");
 }
 
-function footer(clientName: string, frameworkName: string, pageNumber: number, totalPages: number) {
+function footer(clientName: string, frameworkName: string) {
   return [
-    rectOps(0, 0, PAGE_WIDTH, FOOTER_HEIGHT, [0.985, 0.988, 0.982], [0.88, 0.91, 0.88]),
     textOps([clientName], MARGIN, 18, { size: 8.2, color: [0.26, 0.33, 0.27] }),
     textOps([frameworkName], PAGE_WIDTH / 2 - 70, 18, { size: 8.2, color: [0.26, 0.33, 0.27] }),
-    textOps([`Page ${pageNumber} of ${totalPages}`], PAGE_WIDTH - MARGIN - 84, 18, { size: 8.2, color: [0.26, 0.33, 0.27] }),
   ].join("\n");
 }
 
@@ -137,50 +132,48 @@ function card(x: number, y: number, w: number, h: number, title: string, lines: 
     rectOps(x, y, w, h, [1, 1, 1], [0.84, 0.89, 0.84]),
     rectOps(x, y + h - 24, w, 24, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
     textOps([title], x + 10, y + h - 9, { size: 11.2, font: 2, color: [1, 1, 1] }),
-    textOps(lines.flatMap((line) => wrapText(line, Math.floor(w / 5.8))), x + 10, y + h - 38, { size: 8.9, color: [0.16, 0.19, 0.17] }),
+    textOps(lines.flatMap((line) => wrapText(line, Math.floor(w / 5.6))), x + 10, y + h - 38, { size: 8.9, color: [0.16, 0.19, 0.17] }),
   ].join("\n");
 }
 
-function sectionTitle(title: string, x: number, y: number, w: number) {
+function box(title: string, lines: string[], x: number, yTop: number, w: number, minHeight = 90) {
+  const wrapped = lines.flatMap((line) => wrapText(line, Math.floor(w / 5.8)));
+  const height = Math.max(minHeight, wrapped.length * 13 + 48);
   return [
-    rectOps(x, y, w, 22, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
-    textOps([title], x + 10, y + 14, { size: 11, font: 2, color: [1, 1, 1] }),
+    rectOps(x, yTop - height, w, height, [1, 1, 1], [0.84, 0.89, 0.84]),
+    rectOps(x, yTop - 24, w, 24, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
+    textOps([title], x + 10, yTop - 9, { size: 11, font: 2, color: [1, 1, 1] }),
+    textOps(wrapped, x + 10, yTop - 38, { size: 9.2, lineGap: 12, color: [0.16, 0.19, 0.17] }),
   ].join("\n");
 }
 
-function paragraph(text: string, x: number, yTop: number, width: number, size = 10.2) {
-  return textOps(wrapText(text, Math.floor(width / 5.6)), x, yTop, { size, color: [0.16, 0.19, 0.17], lineGap: size + 4 });
+function paragraph(text: string, x: number, yTop: number, w: number, size = 9.2) {
+  const lines = wrapText(text, Math.floor(w / 5.8));
+  return textOps(lines, x, yTop, { size, lineGap: size + 3, color: [0.16, 0.19, 0.17] });
 }
 
 function tablePage(
   title: string,
-  subtitle: string,
   headers: string[],
   rows: string[][],
   colWidths: number[],
-  pageNumber: number,
-  totalPages: number,
   clientName: string,
-  frameworkName: string
+  pageNumber: number,
+  totalPages: number
 ) {
-  const headerTop = PAGE_HEIGHT - 106;
+  const headerTop = PAGE_HEIGHT - 108;
   const tableX = MARGIN;
   const tableW = CONTENT_WIDTH;
   const headerH = 22;
   const rowMinH = 24;
-
   const wrappedRows = rows.map((row) => row.map((cell, index) => wrapText(cell, Math.max(10, Math.floor((colWidths[index] ?? 80) / 5.7)))));
   const rowHeights = wrappedRows.map((row) => Math.max(rowMinH, Math.max(...row.map((cell) => cell.length)) * 10 + 6));
   const totalHeight = headerH + rowHeights.reduce((sum, h) => sum + h, 0);
-  const bodyTop = headerTop - 40;
+  const bodyTop = headerTop - 34;
   const bodyBottom = bodyTop - totalHeight;
-  const minBottom = FOOTER_HEIGHT + 14;
-  if (bodyBottom < minBottom) {
-    throw new Error("Table page overflow");
-  }
+  if (bodyBottom < FOOTER_HEIGHT + 14) throw new Error("Table too tall for page");
 
-  let output = `${header(title, subtitle, pageNumber, totalPages)}\n${sectionTitle(title, MARGIN, headerTop - 4, CONTENT_WIDTH)}`;
-  output += `\n${textOps(wrapText(subtitle, 85), MARGIN, headerTop - 28, { size: 9.2, color: [0.32, 0.36, 0.33] })}`;
+  let output = `${pageHeader(clientName, pageNumber, totalPages)}\n${textOps([title], MARGIN, headerTop, { size: 14, font: 2, color: [0.15, 0.28, 0.19] })}`;
   output += `\n${rectOps(tableX, bodyBottom, tableW, totalHeight, [1, 1, 1], [0.84, 0.89, 0.84])}`;
   output += `\n${rectOps(tableX, bodyTop - headerH, tableW, headerH, [0.25, 0.39, 0.30], [0.88, 0.92, 0.88])}`;
 
@@ -206,8 +199,26 @@ function tablePage(
     rowTop = rowBottom;
   });
 
-  output += `\n${footer(clientName, frameworkName, pageNumber, totalPages)}`;
+  output += `\n${footer(clientName, "")}`;
   return output;
+}
+
+function highestAndLowest(criteria: CriterionRow[], scoresByCriterion: ScoreMap, vendorId: string) {
+  const scored = criteria.map((criterion) => ({
+    criterion,
+    score: scoresByCriterion.get(`${vendorId}:${criterion.id}`),
+  }));
+  const filtered = scored.filter((item): item is { criterion: CriterionRow; score: number } => typeof item.score === "number");
+  return {
+    highest: [...filtered].sort((a, b) => b.score - a.score).slice(0, 2),
+    lowest: [...filtered].sort((a, b) => a.score - b.score).slice(0, 2),
+  };
+}
+
+function buildNarrative(vendorName: string, highest: Array<{ criterion: CriterionRow; score: number }>, lowest: Array<{ criterion: CriterionRow; score: number }>) {
+  const highText = highest.length ? highest.map((item) => item.criterion.name.toLowerCase()).join(" and ") : "the evaluated requirements";
+  const lowText = lowest.length ? lowest.map((item) => item.criterion.name.toLowerCase()).join(" and ") : "the identified gaps";
+  return `${vendorName} performed strongest in ${highText} while showing comparatively weaker performance in ${lowText}.`;
 }
 
 function scoreLabel(totalPercent: number) {
@@ -230,38 +241,37 @@ function avgScore(values: Array<number | null | undefined>) {
   return clean.reduce((a, b) => a + b, 0) / clean.length;
 }
 
-function highestAndLowest(criteria: CriterionRow[], scoresByCriterion: ScoreMap, vendorId: string) {
-  const scored = criteria.map((criterion) => ({
-    criterion,
-    score: scoresByCriterion.get(`${vendorId}:${criterion.id}`),
-  }));
-  const filtered = scored.filter((item): item is { criterion: CriterionRow; score: number } => typeof item.score === "number");
-  return {
-    highest: [...filtered].sort((a, b) => b.score - a.score).slice(0, 2),
-    lowest: [...filtered].sort((a, b) => a.score - b.score).slice(0, 2),
-  };
-}
+function matrixPages(criteria: CriterionRow[], vendors: VendorRow[], scoreMap: ScoreMap, clientName: string, startPage: number, totalPages: number) {
+  const pages: Page[] = [];
+  const criterionChunks: CriterionRow[][] = [];
+  for (let i = 0; i < criteria.length; i += 18) criterionChunks.push(criteria.slice(i, i + 18));
+  const vendorChunks: VendorRow[][] = [];
+  for (let i = 0; i < vendors.length; i += 3) vendorChunks.push(vendors.slice(i, i + 3));
+  if (criterionChunks.length === 0) criterionChunks.push([]);
+  if (vendorChunks.length === 0) vendorChunks.push([]);
 
-function buildNarrative(vendorName: string, highest: Array<{ criterion: CriterionRow; score: number }>, lowest: Array<{ criterion: CriterionRow; score: number }>) {
-  const highText = highest.length ? highest.map((item) => item.criterion.name.toLowerCase()).join(" and ") : "the evaluated requirements";
-  const lowText = lowest.length ? lowest.map((item) => item.criterion.name.toLowerCase()).join(" and ") : "pricing and implementation considerations";
-  return `${vendorName} performed strongest in ${highText} while showing comparatively weaker performance in ${lowText}.`;
-}
-
-function vendorChunks(vendors: VendorRow[], size = 3) {
-  const chunks: VendorRow[][] = [];
-  for (let i = 0; i < vendors.length; i += size) chunks.push(vendors.slice(i, i + size));
-  return chunks.length ? chunks : [[]];
-}
-
-function criterionChunks(criteria: CriterionRow[], size = 20) {
-  const chunks: CriterionRow[][] = [];
-  for (let i = 0; i < criteria.length; i += size) chunks.push(criteria.slice(i, i + size));
-  return chunks.length ? chunks : [[]];
-}
-
-function matrixPageCount(criteriaCount: number, vendorCount: number) {
-  return Math.max(1, Math.ceil(vendorCount / 3)) * Math.max(1, Math.ceil(criteriaCount / 20));
+  let pageNumber = startPage;
+  for (const cChunk of criterionChunks) {
+    for (const vChunk of vendorChunks) {
+      const headers = ["Criteria", "Weight", ...vChunk.map((v) => v.name)];
+      const colWidths = [180, 56, ...vChunk.map(() => 120)];
+      const rows = cChunk.map((criterion) => {
+        const scores = vChunk.map((vendor) => {
+          const score = scoreMap.get(`${vendor.id}:${criterion.id}`);
+          return typeof score === "number" ? score.toFixed(1) : "-";
+        });
+        return [criterion.name, `${Math.round(criterion.weight * 100)}%`, ...scores];
+      });
+      pages.push(
+        [
+          textOps(["Scoring Matrix"], MARGIN, PAGE_HEIGHT - 108, { size: 14, font: 2, color: [0.15, 0.28, 0.19] }),
+          tablePage("", headers, rows, colWidths, clientName, pageNumber, totalPages),
+        ].join("\n")
+      );
+      pageNumber += 1;
+    }
+  }
+  return pages;
 }
 
 export async function GET(_req: NextRequest, { params }: { params: { frameworkId: string } }) {
@@ -278,227 +288,112 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
   });
   if (!framework) return new Response("Framework not found", { status: 404 });
 
-  const displayName = framework.clientName?.trim() || framework.name;
   const clientName = framework.clientName?.trim() || "N/A";
-  const technologyDomain = framework.category.name;
   const criteria: CriterionRow[] = [...framework.criteria].sort((a, b) => a.sortOrder - b.sortOrder);
   const vendors: VendorRow[] = [...framework.tools].sort((a, b) => a.sortOrder - b.sortOrder);
   const scoreMap: ScoreMap = new Map(framework.scores.map((score) => [`${score.toolId}:${score.criterionId}`, score.score]));
+  const stackLines = framework.stackItems.length
+    ? framework.stackItems.map((item) => `${item.role ?? "General"}: ${item.name}${item.notes ? ` - ${item.notes}` : ""}`)
+    : ["No current stack items recorded."];
+  const gapLines = framework.gapItems.length
+    ? framework.gapItems.map((item) => `${item.title}${item.notes ? ` - ${item.notes}` : ""}`)
+    : ["No gap items recorded."];
 
   const vendorStats = vendors.map((vendor) => {
-    const scores = criteria.map((criterion) => scoreMap.get(`${vendor.id}:${criterion.id}`));
     const weightedTotal = criteria.reduce((sum, criterion) => {
       const score = scoreMap.get(`${vendor.id}:${criterion.id}`);
       return sum + (typeof score === "number" ? score * criterion.weight : 0);
     }, 0);
     const percentage = (weightedTotal / 5) * 100;
-    const rankedCriteria = criteria
-      .map((criterion) => ({ criterion, score: scoreMap.get(`${vendor.id}:${criterion.id}`) }))
-      .filter((item): item is { criterion: CriterionRow; score: number } => typeof item.score === "number")
-      .sort((a, b) => b.score - a.score);
+    const scores = criteria.map((criterion) => scoreMap.get(`${vendor.id}:${criterion.id}`));
     return {
       vendor,
-      average: avgScore(scores),
       weightedTotal,
       percentage,
+      average: avgScore(scores),
       recommendation: scoreLabel(percentage),
-      rankedCriteria,
+      fitText: recommendationSummary(percentage),
     };
   });
-
-  const ranked = [...vendorStats].sort((a, b) => b.percentage - a.percentage);
+  const ranked = [...vendorStats].sort((a, b) => b.weightedTotal - a.weightedTotal);
   const winner = ranked[0];
-  const currentStack = framework.stackItems;
-  const gapItems = framework.gapItems;
+  const matrixCount = Math.max(1, Math.ceil(criteria.length / 18)) * Math.max(1, Math.ceil(vendors.length / 3));
+  const totalPages = 1 + 1 + matrixCount + 1;
 
-  const executiveSummary = winner
-    ? `This workshop evaluated ${vendors.length} ${technologyDomain} vendors against the client's business requirements using weighted scoring agreed during the evaluation session. Based on the workshop results, ${winner.vendor.name} achieved the highest overall score and is recommended for further consideration.`
-    : "This workshop evaluated the vendor landscape against the client's business requirements using weighted scoring agreed during the evaluation session.";
-
-  const totalPages = 2 + matrixPageCount(criteria.length, vendors.length) + 1 + Math.max(1, vendors.length) + 1;
   const pages: Page[] = [];
+
+  const page1Summary = winner
+    ? `This workshop evaluated ${vendors.length} CLM vendors against the client's business requirements using weighted scoring agreed during the evaluation session. Based on the workshop results, ${winner.vendor.name} achieved the highest overall score and is recommended for further consideration.`
+    : "This workshop evaluated the vendor landscape against the client's business requirements using weighted scoring agreed during the evaluation session.";
 
   pages.push(
     [
-      header("Client Advisory Workspace", `${displayName} | Executive Summary`, 1, totalPages),
-      textOps([`Report title: ${framework.name}`], MARGIN, PAGE_HEIGHT - 110, { size: 18, font: 2, color: [0.15, 0.28, 0.19] }),
-      textOps([`Client name: ${clientName}`], MARGIN, PAGE_HEIGHT - 136, { size: 10.4, color: [0.18, 0.22, 0.19] }),
-      textOps([`Technology domain: ${technologyDomain}`], MARGIN, PAGE_HEIGHT - 154, { size: 10.1, color: [0.18, 0.22, 0.19] }),
-      textOps([`Framework name: ${framework.name}`], MARGIN, PAGE_HEIGHT - 172, { size: 10.1, color: [0.18, 0.22, 0.19] }),
-      textOps([`Date: ${new Date().toLocaleDateString()}`], MARGIN, PAGE_HEIGHT - 190, { size: 10.1, color: [0.18, 0.22, 0.19] }),
-      rectOps(MARGIN, PAGE_HEIGHT - 246, CONTENT_WIDTH, 42, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
-      textOps([`Overall recommendation: ${winner ? `${winner.vendor.name} is the recommended vendor for the next stage of evaluation.` : "No recommendation could be generated."}`], MARGIN + 12, PAGE_HEIGHT - 222, {
-        size: 11.3,
+      pageHeader(clientName, 1, totalPages),
+      textOps([`Client Name: ${clientName}`], MARGIN, PAGE_HEIGHT - 112, { size: 10.4, color: [0.18, 0.22, 0.19] }),
+      textOps([`Date: ${new Date().toLocaleDateString()}`], MARGIN, PAGE_HEIGHT - 130, { size: 10.4, color: [0.18, 0.22, 0.19] }),
+      rectOps(MARGIN, PAGE_HEIGHT - 186, CONTENT_WIDTH, 36, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
+      textOps([`Overall Recommendation: ${winner ? `${winner.vendor.name} is the recommended vendor for the next stage of evaluation.` : "No recommendation could be generated."}`], MARGIN + 12, PAGE_HEIGHT - 162, {
+        size: 10.8,
         font: 2,
         color: [1, 1, 1],
       }),
       card(
         MARGIN,
-        PAGE_HEIGHT - 420,
+        PAGE_HEIGHT - 322,
         (CONTENT_WIDTH - 12) / 2,
-        140,
+        128,
         "Current Technology Stack",
-        currentStack.length ? currentStack.map((item) => `${item.role ?? "General"}: ${item.name}${item.notes ? ` - ${item.notes}` : ""}`) : ["No current stack items recorded."]
+        stackLines
       ),
       card(
         MARGIN + (CONTENT_WIDTH - 12) / 2 + 12,
-        PAGE_HEIGHT - 420,
+        PAGE_HEIGHT - 322,
         (CONTENT_WIDTH - 12) / 2,
-        140,
+        128,
         "Gap Analysis",
-        gapItems.length ? gapItems.map((item) => `${item.title}${item.notes ? ` - ${item.notes}` : ""}`) : ["No gap items recorded."]
+        gapLines
       ),
-      rectOps(MARGIN, PAGE_HEIGHT - 590, CONTENT_WIDTH, 124, [1, 1, 1], [0.84, 0.89, 0.84]),
-      sectionTitle("Executive Summary", MARGIN, PAGE_HEIGHT - 566, CONTENT_WIDTH),
-      paragraph(executiveSummary, MARGIN + 10, PAGE_HEIGHT - 594, CONTENT_WIDTH - 20, 10.8),
-      footer(displayName, framework.name, 1, totalPages),
+      box("Executive Summary", [page1Summary], MARGIN, PAGE_HEIGHT - 410, CONTENT_WIDTH, 102),
+      footer(clientName, framework.name),
     ].join("\n")
   );
 
-  const rankingRows = ranked.map((entry, index) => [String(index + 1), entry.vendor.name, entry.weightedTotal.toFixed(1), `${entry.percentage.toFixed(1)}%`, entry.recommendation]);
+  const rankingRows = ranked.map((entry, index) => [String(index + 1), entry.vendor.name, entry.weightedTotal.toFixed(1), entry.recommendation]);
   pages.push(
     tablePage(
       "Vendor Ranking",
-      "Professional ranking table with weighted scores, percentage conversion and recommendation labels.",
-      ["Rank", "Vendor", "Weighted Score", "Percentage", "Recommendation"],
+      ["Rank", "Vendor", "Weighted Score", "Recommendation"],
       rankingRows,
-      [42, 170, 100, 90, 121],
+      [44, 190, 98, 132],
+      clientName,
       2,
-      totalPages,
-      displayName,
-      framework.name
+      totalPages
     )
   );
 
-  let pageNumber = 3;
-  for (const criterionChunk of criterionChunks(criteria)) {
-    for (const vendorChunk of vendorChunks(vendors)) {
-      const headers = ["Criteria", "Weight", ...vendorChunk.map((vendor) => vendor.name)];
-      const colWidths = [190, 56, ...vendorChunk.map(() => 115)];
-      const rows = criterionChunk.map((criterion) => {
-        const scores = vendorChunk.map((vendor) => {
-          const score = scoreMap.get(`${vendor.id}:${criterion.id}`);
-          return typeof score === "number" ? score.toFixed(1) : "-";
-        });
-        return [criterion.name, `${Math.round(criterion.weight * 100)}%`, ...scores];
-      });
-      pages.push(
-        tablePage(
-          "Scoring Matrix",
-          vendorChunk.length ? `Complete workshop scoring matrix. Vendors on this page: ${vendorChunk.map((v) => v.name).join(", ")}.` : "Complete workshop scoring matrix.",
-          headers,
-          rows,
-          colWidths,
-          pageNumber,
-          totalPages,
-          displayName,
-          framework.name
-        )
-      );
-      pageNumber += 1;
-    }
-  }
+  pages.push(...matrixPages(criteria, vendors, scoreMap, clientName, 3, totalPages));
 
-  const weightedRows = criteria.map((criterion) => {
-    const perVendor = vendors
-      .map((vendor) => {
-        const score = scoreMap.get(`${vendor.id}:${criterion.id}`);
-        return { vendor, score: typeof score === "number" ? score : -1 };
-      })
-      .sort((a, b) => b.score - a.score);
-    const highest = perVendor[0];
-    return [
-      criterion.name,
-      `${Math.round(criterion.weight * 100)}%`,
-      highest?.vendor.name ?? "-",
-      highest && highest.score >= 0 ? `${highest.vendor.name} led this criterion with ${highest.score.toFixed(1)}.` : "No scored data was captured.",
-    ];
-  });
-
-  pages.push(
-    tablePage(
-      "Weighted Results",
-      "How the weighted totals were calculated from the workshop scoring.",
-      ["Criterion", "Weight", "Highest Vendor", "Notes"],
-      weightedRows,
-      [190, 60, 120, 173],
-      pageNumber,
-      totalPages,
-      displayName,
-      framework.name
-    )
-  );
-  pageNumber += 1;
-
-  for (const entry of vendorStats) {
-    const { highest, lowest } = highestAndLowest(criteria, scoreMap, entry.vendor.id);
-    const highestText = highest.length ? highest.map((item) => `${item.criterion.name} (${item.score.toFixed(1)})`).join("; ") : "No scored data captured.";
-    const lowestText = lowest.length ? lowest.map((item) => `${item.criterion.name} (${item.score.toFixed(1)})`).join("; ") : "No scored data captured.";
-    const comments = buildNarrative(entry.vendor.name, highest, lowest);
-    pages.push(
-      [
-        header("Vendor Strengths", `${displayName} | ${entry.vendor.name}`, pageNumber, totalPages),
-        rectOps(MARGIN, PAGE_HEIGHT - 180, CONTENT_WIDTH, 100, [1, 1, 1], [0.84, 0.89, 0.84]),
-        textOps([`Vendor: ${entry.vendor.name}`], MARGIN + 10, PAGE_HEIGHT - 96, { size: 15, font: 2, color: [0.15, 0.28, 0.19] }),
-        textOps([`Average score: ${entry.average.toFixed(1)} / 5`], MARGIN + 10, PAGE_HEIGHT - 118, { size: 10.5, color: [0.2, 0.24, 0.21] }),
-        textOps([`Weighted score: ${entry.weightedTotal.toFixed(1)} | ${entry.percentage.toFixed(1)}% | ${entry.recommendation}`], MARGIN + 10, PAGE_HEIGHT - 136, {
-          size: 10.2,
-          color: [0.2, 0.24, 0.21],
-        }),
-        rectOps(MARGIN, PAGE_HEIGHT - 348, CONTENT_WIDTH, 150, [0.98, 0.992, 0.98], [0.84, 0.89, 0.84]),
-        sectionTitle("Highest scoring capabilities", MARGIN, PAGE_HEIGHT - 210, CONTENT_WIDTH),
-        paragraph(highestText, MARGIN + 10, PAGE_HEIGHT - 230, CONTENT_WIDTH - 20, 9.6),
-        textOps([`Lowest scoring capabilities`], MARGIN + 10, PAGE_HEIGHT - 274, { size: 11.2, font: 2, color: [0.15, 0.28, 0.19] }),
-        paragraph(lowestText, MARGIN + 10, PAGE_HEIGHT - 294, CONTENT_WIDTH - 20, 9.6),
-        rectOps(MARGIN, PAGE_HEIGHT - 500, CONTENT_WIDTH, 128, [1, 1, 1], [0.84, 0.89, 0.84]),
-        sectionTitle("Overall Comments", MARGIN, PAGE_HEIGHT - 472, CONTENT_WIDTH),
-        paragraph(comments, MARGIN + 10, PAGE_HEIGHT - 496, CONTENT_WIDTH - 20, 10.6),
-        footer(displayName, framework.name, pageNumber, totalPages),
-      ].join("\n")
-    );
-    pageNumber += 1;
-  }
-
-  const recommendation = ranked[0];
+  const recommendation = winner ?? ranked[0];
   const summaryReason = recommendation
     ? `${recommendation.vendor.name} scored highest overall and offers the strongest combination of weighted fit, workshop performance and practical alignment to the current stack.`
     : "No recommendation could be produced because the framework contains no scored vendors.";
-  const stackConsiderations = currentStack.length ? currentStack.slice(0, 4).map((item) => `${item.role ?? "General"}: ${item.name}`).join("; ") : "No current stack items were captured.";
-  const gapAlignment = gapItems.length ? gapItems.slice(0, 4).map((item) => item.title).join("; ") : "No gap items were captured.";
-
   pages.push(
     [
-      header("Consultant Recommendation", `${displayName} | Final Recommendation`, pageNumber, totalPages),
-      rectOps(MARGIN, PAGE_HEIGHT - 182, CONTENT_WIDTH, 110, [1, 1, 1], [0.84, 0.89, 0.84]),
-      textOps([`Recommended Vendor`], MARGIN + 10, PAGE_HEIGHT - 96, { size: 11.5, font: 2, color: [0.15, 0.28, 0.19] }),
-      textOps([recommendation?.vendor.name ?? "N/A"], MARGIN + 10, PAGE_HEIGHT - 118, { size: 17, font: 2, color: [0.15, 0.28, 0.19] }),
-      textOps([`Reasoning`], MARGIN + 10, PAGE_HEIGHT - 142, { size: 11.2, font: 2, color: [0.15, 0.28, 0.19] }),
-      paragraph(summaryReason, MARGIN + 10, PAGE_HEIGHT - 160, CONTENT_WIDTH - 20, 10.4),
-      rectOps(MARGIN, PAGE_HEIGHT - 346, CONTENT_WIDTH, 128, [0.98, 0.992, 0.98], [0.84, 0.89, 0.84]),
-      sectionTitle("Current Stack Considerations", MARGIN, PAGE_HEIGHT - 318, CONTENT_WIDTH),
-      paragraph(stackConsiderations, MARGIN + 10, PAGE_HEIGHT - 340, CONTENT_WIDTH - 20, 10.1),
-      rectOps(MARGIN, PAGE_HEIGHT - 496, CONTENT_WIDTH, 128, [1, 1, 1], [0.84, 0.89, 0.84]),
-      sectionTitle("Gap Analysis Alignment", MARGIN, PAGE_HEIGHT - 468, CONTENT_WIDTH),
-      paragraph(gapAlignment, MARGIN + 10, PAGE_HEIGHT - 490, CONTENT_WIDTH - 20, 10.1),
-      rectOps(MARGIN, PAGE_HEIGHT - 628, CONTENT_WIDTH, 98, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
-      textOps([`Next Steps`], MARGIN + 10, PAGE_HEIGHT - 556, { size: 11.5, font: 2, color: [1, 1, 1] }),
-      paragraph(
-        recommendation
-          ? `${recommendation.vendor.name} should be taken into the next stage of evaluation. Validate implementation approach, commercial terms, and security requirements before final procurement decisions are made.`
-          : "No next steps could be derived from an empty framework.",
-        MARGIN + 10,
-        PAGE_HEIGHT - 578,
-        CONTENT_WIDTH - 20,
-        10.2
-      ),
-      footer(displayName, framework.name, pageNumber, totalPages),
+      pageHeader(clientName, totalPages, totalPages),
+      textOps(["Recommended Vendor"], MARGIN, PAGE_HEIGHT - 110, { size: 14, font: 2, color: [0.15, 0.28, 0.19] }),
+      rectOps(MARGIN, PAGE_HEIGHT - 198, CONTENT_WIDTH, 80, [1, 1, 1], [0.84, 0.89, 0.84]),
+      textOps([`Recommended Vendor Name: ${recommendation?.vendor.name ?? "N/A"}`], MARGIN + 10, PAGE_HEIGHT - 140, { size: 11.4, font: 2, color: [0.15, 0.28, 0.19] }),
+      textOps([`Reasoning`], MARGIN + 10, PAGE_HEIGHT - 162, { size: 10.8, font: 2, color: [0.15, 0.28, 0.19] }),
+      paragraph(summaryReason, MARGIN + 10, PAGE_HEIGHT - 178, CONTENT_WIDTH - 20, 10.2),
+      box("Consultant Recommendation", [summaryReason], MARGIN, PAGE_HEIGHT - 316, CONTENT_WIDTH, 102),
+      footer(clientName, framework.name),
     ].join("\n")
   );
 
   return new Response(buildPdf(pages), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${safePdfName(displayName)}.pdf"`,
+      "Content-Disposition": `attachment; filename="${safePdfName(clientName)}.pdf"`,
     },
   });
 }
