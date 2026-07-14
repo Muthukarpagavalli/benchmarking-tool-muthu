@@ -158,16 +158,20 @@ export default function PeersClient({
               <label className="news-field">
                 <span>Firm</span>
                 <select
-                  value={peerChoice === "new" ? "__new__" : form.peerFirmId}
+                  value={peerChoice === "new" ? "__new__" : form.peerFirmId || "__select__"}
                   onChange={(e) => {
                     if (e.target.value === "__new__") {
                       setPeerChoice("new");
                       return;
                     }
+                    if (e.target.value === "__select__") return;
                     setPeerChoice("existing");
                     setForm({ ...form, peerFirmId: e.target.value });
                   }}
                 >
+                  <option value="__select__" disabled>
+                    Select or add firm
+                  </option>
                   <option value="__new__">+ New peer firm</option>
                   {peerFirms.map((f) => (
                     <option key={f.id} value={f.id}>
@@ -187,16 +191,20 @@ export default function PeersClient({
               <label className="news-field">
                 <span>Category</span>
                 <select
-                  value={categoryChoice === "new" ? "__new__" : form.categoryId}
+                  value={categoryChoice === "new" ? "__new__" : form.categoryId || "__select__"}
                   onChange={(e) => {
                     if (e.target.value === "__new__") {
                       setCategoryChoice("new");
                       return;
                     }
+                    if (e.target.value === "__select__") return;
                     setCategoryChoice("existing");
                     setForm({ ...form, categoryId: e.target.value, toolId: "" });
                   }}
                 >
+                  <option value="__select__" disabled>
+                    Select or add category
+                  </option>
                   <option value="__new__">+ New category</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -216,18 +224,21 @@ export default function PeersClient({
               <label className="news-field">
                 <span>Tool</span>
                 <select
-                  value={toolChoice === "new" ? "__new__" : form.toolId}
+                  value={toolChoice === "new" ? "__new__" : form.toolId || "__select__"}
                   onChange={(e) => {
                     if (e.target.value === "__new__") {
                       setToolChoice("new");
                       return;
                     }
+                    if (e.target.value === "__select__") return;
                     setToolChoice("existing");
                     setForm({ ...form, toolId: e.target.value });
                   }}
                 >
+                  <option value="__select__" disabled>
+                    Select or add tool
+                  </option>
                   <option value="__new__">+ New tool</option>
-                  <option value="">(unspecified tool)</option>
                   {toolsForForm.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
@@ -247,7 +258,7 @@ export default function PeersClient({
                 <span>Date</span>
                 <input type="date" value={form.dateLogged} onChange={(e) => setForm({ ...form, dateLogged: e.target.value })} />
               </label>
-              <label className="news-field">
+              <label className="news-field" style={{ gridColumn: "1 / -1" }}>
                 <span>Source note</span>
                 <input
                   placeholder="Source note (e.g. mentioned in Law.com article about their AI rollout)"
@@ -255,7 +266,7 @@ export default function PeersClient({
                   onChange={(e) => setForm({ ...form, sourceNote: e.target.value })}
                 />
               </label>
-              <label className="news-field">
+              <label className="news-field" style={{ gridColumn: "1 / span 2" }}>
                 <span>Source URL</span>
                 <input placeholder="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
               </label>
