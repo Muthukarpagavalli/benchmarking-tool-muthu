@@ -43,8 +43,10 @@ export default function PeersClient({
   const [standPanelOpen, setStandPanelOpen] = useState(true);
   const [peerChoice, setPeerChoice] = useState<"existing" | "new">("existing");
   const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
+  const [toolChoice, setToolChoice] = useState<"existing" | "new">("existing");
   const [newPeerFirmName, setNewPeerFirmName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newToolName, setNewToolName] = useState("");
   const [form, setForm] = useState({
     peerFirmId: peerFirms[0]?.id ?? "",
     categoryId: categories[0]?.id ?? "",
@@ -91,6 +93,22 @@ export default function PeersClient({
     router.refresh();
   }
 
+  async function createTool() {
+    const name = newToolName.trim();
+    if (!name) return;
+    const response = await fetch(`/api/categories/${form.categoryId}/tools`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    });
+    if (!response.ok) return;
+    const tool = (await response.json()) as Tool;
+    setToolChoice("existing");
+    setForm((current) => ({ ...current, toolId: tool.id }));
+    setNewToolName("");
+    router.refresh();
+  }
+
   async function submitAdoption() {
     if (!form.peerFirmId || !form.sourceNote) return;
     setSubmitting(true);
@@ -132,13 +150,13 @@ export default function PeersClient({
       <div className="peers-layout">
         <div className="peers-main">
           <h3 style={{ fontSize: 15, marginTop: 24 }}>Log an adoption sighting</h3>
-          <div className="stack-create-panel" style={{ marginBottom: 12 }}>
+          <div className="stack-create-panel compact-peer-form" style={{ marginBottom: 12 }}>
             <div className="stack-create-panel-head">
-              <strong>New peer firm / category</strong>
+              <strong>Log an adoption sighting</strong>
             </div>
-            <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr", gap: 10 }}>
+            <div className="stack-create-grid peer-entry-grid">
               <label className="news-field">
-                <span>Peer firm</span>
+                <span>Firm</span>
                 <select
                   value={peerChoice === "new" ? "__new__" : form.peerFirmId}
                   onChange={(e) => {
@@ -195,62 +213,56 @@ export default function PeersClient({
                   </div>
                 )}
               </label>
+              <label className="news-field">
+                <span>Tool</span>
+                <select
+                  value={toolChoice === "new" ? "__new__" : form.toolId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setToolChoice("new");
+                      return;
+                    }
+                    setToolChoice("existing");
+                    setForm({ ...form, toolId: e.target.value });
+                  }}
+                >
+                  <option value="__new__">+ New tool</option>
+                  <option value="">(unspecified tool)</option>
+                  {toolsForForm.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                {toolChoice === "new" && (
+                  <div className="form-row">
+                    <input placeholder="New tool name" value={newToolName} onChange={(e) => setNewToolName(e.target.value)} />
+                    <button type="button" className="framework-action framework-action-add" onClick={createTool} aria-label="Add tool">
+                      +
+                    </button>
+                  </div>
+                )}
+              </label>
+              <label className="news-field">
+                <span>Date</span>
+                <input type="date" value={form.dateLogged} onChange={(e) => setForm({ ...form, dateLogged: e.target.value })} />
+              </label>
+              <label className="news-field">
+                <span>Source note</span>
+                <input
+                  placeholder="Source note (e.g. mentioned in Law.com article about their AI rollout)"
+                  value={form.sourceNote}
+                  onChange={(e) => setForm({ ...form, sourceNote: e.target.value })}
+                />
+              </label>
+              <label className="news-field">
+                <span>Source URL</span>
+                <input placeholder="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
+              </label>
+              <button className="primary" onClick={submitAdoption} disabled={submitting}>
+                {submitting ? "Adding..." : "Log sighting"}
+              </button>
             </div>
-          </div>
-          <div className="form-row peer-sighting-row">
-            <label className="news-field">
-              <span>Firm</span>
-              <select value={form.peerFirmId} onChange={(e) => setForm({ ...form, peerFirmId: e.target.value })}>
-                {peerFirms.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="news-field">
-              <span>Category</span>
-              <select
-                value={form.categoryId}
-                onChange={(e) => {
-                  setForm({ ...form, categoryId: e.target.value, toolId: "" });
-                }}
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="news-field">
-              <span>Tool</span>
-              <select value={form.toolId} onChange={(e) => setForm({ ...form, toolId: e.target.value })}>
-                <option value="">(unspecified tool)</option>
-                {toolsForForm.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="form-row peer-sighting-row">
-            <label className="news-field" style={{ flex: 3 }}>
-              <span>Source note</span>
-              <input
-                placeholder="e.g. mentioned in Law.com article about their AI rollout"
-                value={form.sourceNote}
-                onChange={(e) => setForm({ ...form, sourceNote: e.target.value })}
-              />
-            </label>
-            <label className="news-field" style={{ flex: 1.4 }}>
-              <span>Source URL</span>
-              <input placeholder="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
-            </label>
-            <button className="primary" onClick={submitAdoption} disabled={submitting}>
-              {submitting ? "Adding..." : "Log sighting"}
-            </button>
           </div>
 
           <h3 style={{ fontSize: 15, marginTop: 28 }}>All logged sightings</h3>
