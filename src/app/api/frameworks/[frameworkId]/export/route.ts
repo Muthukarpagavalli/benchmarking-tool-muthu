@@ -288,7 +288,7 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
   });
   if (!framework) return new Response("Framework not found", { status: 404 });
 
-  const clientName = framework.clientName?.trim() || "N/A";
+  const clientName = framework.clientName?.trim() || framework.name;
   const criteria: CriterionRow[] = [...framework.criteria].sort((a, b) => a.sortOrder - b.sortOrder);
   const vendors: VendorRow[] = [...framework.tools].sort((a, b) => a.sortOrder - b.sortOrder);
   const scoreMap: ScoreMap = new Map(framework.scores.map((score) => [`${score.toolId}:${score.criterionId}`, score.score]));
@@ -381,11 +381,14 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
     [
       pageHeader(clientName, totalPages, totalPages),
       textOps(["Recommended Vendor"], MARGIN, PAGE_HEIGHT - 110, { size: 14, font: 2, color: [0.15, 0.28, 0.19] }),
-      rectOps(MARGIN, PAGE_HEIGHT - 198, CONTENT_WIDTH, 80, [1, 1, 1], [0.84, 0.89, 0.84]),
-      textOps([`Recommended Vendor Name: ${recommendation?.vendor.name ?? "N/A"}`], MARGIN + 10, PAGE_HEIGHT - 140, { size: 11.4, font: 2, color: [0.15, 0.28, 0.19] }),
-      textOps([`Reasoning`], MARGIN + 10, PAGE_HEIGHT - 162, { size: 10.8, font: 2, color: [0.15, 0.28, 0.19] }),
-      paragraph(summaryReason, MARGIN + 10, PAGE_HEIGHT - 178, CONTENT_WIDTH - 20, 10.2),
-      box("Consultant Recommendation", [summaryReason], MARGIN, PAGE_HEIGHT - 316, CONTENT_WIDTH, 102),
+      box(
+        "Consultant Recommendation",
+        [`Recommended Vendor Name: ${recommendation?.vendor.name ?? "N/A"}`, `Reasoning: ${summaryReason}`],
+        MARGIN,
+        PAGE_HEIGHT - 144,
+        CONTENT_WIDTH,
+        120
+      ),
       footer(clientName, framework.name),
     ].join("\n")
   );
