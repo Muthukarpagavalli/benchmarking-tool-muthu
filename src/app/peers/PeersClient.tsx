@@ -129,9 +129,6 @@ export default function PeersClient({
         <div className="peers-main">
           <h3 style={{ fontSize: 15, marginTop: 24 }}>Log an adoption sighting</h3>
           <div className="stack-create-panel compact-peer-form" style={{ marginBottom: 12 }}>
-            <div className="stack-create-panel-head">
-              <strong>Log an adoption sighting</strong>
-            </div>
             <div className="stack-create-grid peer-entry-grid">
               <label className="news-field">
                 <span>Firm</span>

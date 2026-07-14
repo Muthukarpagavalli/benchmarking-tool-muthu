@@ -466,11 +466,11 @@ th { background: #f1efe9; font-weight: 600; }
 }
 
 .compact-peer-form {
-  padding: 12px;
+  padding: 10px 12px;
 }
 .peer-entry-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 .peer-entry-grid .news-field:last-child {
   grid-column: 1 / -1;
@@ -478,6 +478,21 @@ th { background: #f1efe9; font-weight: 600; }
 .peer-entry-grid button.primary {
   grid-column: 3;
   align-self: end;
+}
+.compact-peer-form .news-field {
+  gap: 4px;
+}
+.compact-peer-form .form-row {
+  margin-bottom: 0;
+}
+.compact-peer-form input,
+.compact-peer-form select {
+  min-height: 34px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.compact-peer-form .primary {
+  min-height: 34px;
 }
 
 .gap-create-panel {
