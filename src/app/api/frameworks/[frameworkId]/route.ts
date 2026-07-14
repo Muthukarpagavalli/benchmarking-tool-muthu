@@ -21,6 +21,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { frameworkI
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { frameworkId: string } }) {
-  await prisma.scoringFramework.delete({ where: { id: params.frameworkId } });
+  await prisma.$transaction([
+    prisma.scoringFrameworkScore.deleteMany({ where: { frameworkId: params.frameworkId } }),
+    prisma.scoringFramework.delete({ where: { id: params.frameworkId } }),
+  ]);
   return NextResponse.json({ ok: true });
 }
