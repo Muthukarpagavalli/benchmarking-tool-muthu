@@ -15,7 +15,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <div className="sidebar-brand-mark">KB</div>
               <div>
                 <h1>Knowledge Bank</h1>
-                <p>Benchmarking workspace</p>
               </div>
             </div>
             <SidebarNav />
