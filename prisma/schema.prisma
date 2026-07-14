@@ -139,8 +139,9 @@ model ToolScore {
 
 model NewsEntry {
   id         String   @id @default(cuid())
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryName String?
   toolId     String?
   tool       Tool?    @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   date       DateTime

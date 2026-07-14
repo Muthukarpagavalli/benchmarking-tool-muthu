@@ -13,7 +13,8 @@ type NewsEntry = {
   sourceUrl: string | null;
   impact: string;
   loggedBy: string;
-  category: Category;
+  category: Category | null;
+  categoryName: string | null;
   tool: Tool | null;
 };
 
@@ -44,6 +45,8 @@ export default function NewsClient({
   const [featureTypeOptions, setFeatureTypeOptions] = useState(featureTypes);
   const [toolChoice, setToolChoice] = useState<"existing" | "new">("existing");
   const [typeChoice, setTypeChoice] = useState<"existing" | "new">("existing");
+  const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [newToolName, setNewToolName] = useState("");
   const [newFeatureTypeName, setNewFeatureTypeName] = useState("");
   const [form, setForm] = useState({
@@ -60,7 +63,7 @@ export default function NewsClient({
 
   const filtered = useMemo(() => {
     return entries.filter((entry) => {
-      if (filterCategoryId && entry.category.id !== filterCategoryId) return false;
+      if (filterCategoryId && entry.category?.id !== filterCategoryId) return false;
       if (filterToolId && entry.tool?.id !== filterToolId) return false;
       if (filterFeatureType && entry.updateType !== filterFeatureType) return false;
       const entryDate = new Date(entry.date).toISOString().slice(0, 10);
@@ -70,19 +73,27 @@ export default function NewsClient({
     });
   }, [entries, filterCategoryId, filterDateFrom, filterDateTo, filterFeatureType, filterToolId]);
 
-  const toolsForCategory = tools.filter((t) => t.categoryId === form.categoryId);
+  const toolsForCategory = categoryChoice === "existing" && form.categoryId ? tools.filter((t) => t.categoryId === form.categoryId) : tools;
   const filteredTools = tools.filter((t) => !filterCategoryId || t.categoryId === filterCategoryId);
 
   async function submit() {
+    const categoryName = newCategoryName.trim();
     if (!form.summary || !form.loggedBy) return;
+    if (categoryChoice === "new" && !categoryName) return;
     setSubmitting(true);
     await fetch("/api/news", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        categoryId: categoryChoice === "existing" ? form.categoryId : "",
+        categoryName: categoryChoice === "new" ? categoryName : "",
+      }),
     });
     setSubmitting(false);
     setForm((f) => ({ ...f, summary: "", sourceUrl: "" }));
+    setNewCategoryName("");
+    setCategoryChoice("existing");
     router.refresh();
   }
 
@@ -184,7 +195,7 @@ export default function NewsClient({
           {filtered.map((e) => (
             <div className="news-row" key={e.id}>
               <span>{new Date(e.date).toLocaleDateString()}</span>
-              <span>{e.category.name}</span>
+              <span>{e.category?.name ?? e.categoryName ?? "-"}</span>
               <span>{e.tool?.name ?? "-"}</span>
               <span>{e.updateType}</span>
               <span>
@@ -211,17 +222,38 @@ export default function NewsClient({
               <label className="news-field">
                 <span>Category</span>
                 <select
-                  value={form.categoryId}
+                  value={categoryChoice === "new" ? "__new__" : form.categoryId || "__select__"}
                   onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setCategoryChoice("new");
+                      setToolChoice("existing");
+                      setForm({ ...form, categoryId: "", toolId: "" });
+                      return;
+                    }
+                    setCategoryChoice("existing");
+                    setNewCategoryName("");
                     setForm({ ...form, categoryId: e.target.value, toolId: "" });
                   }}
                 >
+                  <option value="__select__" disabled hidden>
+                    Select category
+                  </option>
+                  <option value="__new__">+ New category</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
                 </select>
+                {categoryChoice === "new" && (
+                  <div className="form-row">
+                    <input
+                      placeholder="New category name"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                    />
+                  </div>
+                )}
               </label>
               <label className="news-field">
                 <span>Tool</span>
@@ -236,7 +268,7 @@ export default function NewsClient({
                     setForm({ ...form, toolId: e.target.value });
                   }}
                 >
-                  <option value="__new__">+ New tool</option>
+                  {categoryChoice === "existing" && form.categoryId && <option value="__new__">+ New tool</option>}
                   <option value="" disabled hidden>
                     Select tool
                   </option>
@@ -246,7 +278,7 @@ export default function NewsClient({
                     </option>
                   ))}
                 </select>
-                {toolChoice === "new" && (
+                {toolChoice === "new" && categoryChoice === "existing" && form.categoryId && (
                   <div className="form-row">
                     <input placeholder="New tool name" value={newToolName} onChange={(e) => setNewToolName(e.target.value)} />
                     <button type="button" className="framework-action framework-action-add" onClick={createTool} aria-label="Add tool">

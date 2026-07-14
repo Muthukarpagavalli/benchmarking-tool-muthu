@@ -26,13 +26,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { categoryId, toolId, date, updateType, summary, sourceUrl, impact, loggedBy } = body;
-  if (!categoryId || !date || !updateType || !summary || !impact || !loggedBy) {
+  const { categoryId, categoryName, toolId, date, updateType, summary, sourceUrl, impact, loggedBy } = body;
+  if ((!categoryId && !categoryName) || !date || !updateType || !summary || !impact || !loggedBy) {
     return NextResponse.json({ error: "missing required fields" }, { status: 400 });
   }
   const entry = await prisma.newsEntry.create({
     data: {
-      categoryId,
+      categoryId: categoryId || null,
+      categoryName: categoryName || null,
       toolId: toolId || null,
       date: new Date(date),
       updateType,

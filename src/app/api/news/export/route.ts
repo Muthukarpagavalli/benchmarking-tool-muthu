@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
         ? rows.map((entry) => {
             const date = new Date(entry.date).toLocaleDateString();
             const tool = entry.tool?.name ?? "-";
-            return [date, entry.category.name, tool, entry.updateType, entry.summary, entry.impact];
+            return [date, entry.category?.name ?? entry.categoryName ?? "-", tool, entry.updateType, entry.summary, entry.impact];
           })
         : [],
       MARGIN,
