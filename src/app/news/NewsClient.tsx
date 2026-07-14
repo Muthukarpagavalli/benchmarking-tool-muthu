@@ -42,6 +42,9 @@ export default function NewsClient({
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [featureTypeOptions, setFeatureTypeOptions] = useState(featureTypes);
+  const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
+  const [toolChoice, setToolChoice] = useState<"existing" | "new">("existing");
+  const [typeChoice, setTypeChoice] = useState<"existing" | "new">("existing");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newToolName, setNewToolName] = useState("");
   const [newFeatureTypeName, setNewFeatureTypeName] = useState("");
@@ -49,7 +52,7 @@ export default function NewsClient({
     categoryId: categories[0]?.id ?? "",
     toolId: "",
     date: new Date().toISOString().slice(0, 10),
-    updateType: featureTypes[0] ?? "Review",
+    updateType: featureTypes[0] ?? "",
     summary: "",
     sourceUrl: "",
     impact: "Watch",
@@ -83,6 +86,7 @@ export default function NewsClient({
     if (!response.ok) return;
     const category = (await response.json()) as Category;
     setForm((current) => ({ ...current, categoryId: category.id, toolId: "" }));
+    setCategoryChoice("existing");
     setNewCategoryName("");
     router.refresh();
   }
@@ -105,6 +109,7 @@ export default function NewsClient({
     if (!trimmed) return;
     setFeatureTypeOptions((current) => (current.includes(trimmed) ? current : [...current, trimmed].sort((a, b) => a.localeCompare(b))));
     setForm((current) => ({ ...current, updateType: trimmed }));
+    setTypeChoice("existing");
     setNewFeatureTypeName("");
   }
 
@@ -119,6 +124,7 @@ export default function NewsClient({
     if (!response.ok) return;
     const tool = (await response.json()) as Tool;
     setForm((current) => ({ ...current, toolId: tool.id }));
+    setToolChoice("existing");
     setNewToolName("");
     router.refresh();
   }
@@ -219,94 +225,141 @@ export default function NewsClient({
         <aside className="news-sidebar">
           <div className="report-card news-entry-card">
             <h4>New entry</h4>
-            <div className="stack-list">
-              <div className="stack-create-panel">
-                <div className="stack-create-panel-head">
-                  <strong>New category / tool / type</strong>
-                </div>
-                <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr", gap: 8 }}>
+            <div className="stack-list news-entry-form">
+              <label className="news-field">
+                <span>Category</span>
+                <select
+                  value={categoryChoice === "new" ? "__new__" : form.categoryId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setCategoryChoice("new");
+                      return;
+                    }
+                    setCategoryChoice("existing");
+                    setForm({ ...form, categoryId: e.target.value, toolId: "" });
+                  }}
+                >
+                  <option value="__new__">+ New category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {categoryChoice === "new" && (
                   <div className="form-row">
                     <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
                     <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
                       +
                     </button>
                   </div>
+                )}
+              </label>
+              <label className="news-field">
+                <span>Tool</span>
+                <select
+                  value={toolChoice === "new" ? "__new__" : form.toolId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setToolChoice("new");
+                      return;
+                    }
+                    setToolChoice("existing");
+                    setForm({ ...form, toolId: e.target.value });
+                  }}
+                >
+                  <option value="__new__">+ New tool</option>
+                  <option value="" disabled hidden>
+                    Select tool
+                  </option>
+                  {toolsForCategory.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                {toolChoice === "new" && (
                   <div className="form-row">
                     <input placeholder="New tool name" value={newToolName} onChange={(e) => setNewToolName(e.target.value)} />
                     <button type="button" className="framework-action framework-action-add" onClick={createTool} aria-label="Add tool">
                       +
                     </button>
                   </div>
+                )}
+              </label>
+              <label className="news-field">
+                <span>Date</span>
+                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+              </label>
+              <label className="news-field">
+                <span>Type</span>
+                <select
+                  value={typeChoice === "new" ? "__new__" : form.updateType || "__select__"}
+                  onChange={(e) => {
+                    if (e.target.value === "__select__") {
+                      return;
+                    }
+                    if (e.target.value === "__new__") {
+                      setTypeChoice("new");
+                      return;
+                    }
+                    setTypeChoice("existing");
+                    setForm({ ...form, updateType: e.target.value });
+                  }}
+                >
+                  <option value="__select__" disabled>
+                    Select or add type
+                  </option>
+                  <option value="__new__">+ New feature type</option>
+                  {[...new Set([...featureTypeOptions, ...filtered.map((entry) => entry.updateType)])]
+                    .sort((a, b) => a.localeCompare(b))
+                    .map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                </select>
+                {typeChoice === "new" && (
                   <div className="form-row">
                     <input placeholder="New feature type" value={newFeatureTypeName} onChange={(e) => setNewFeatureTypeName(e.target.value)} />
                     <button type="button" className="framework-action framework-action-add" onClick={createFeatureType} aria-label="Add feature type">
                       +
                     </button>
                   </div>
-                </div>
-              </div>
-              <select
-                value={form.categoryId}
-                onChange={(e) => {
-                  setForm({ ...form, categoryId: e.target.value, toolId: "" });
-                }}
-              >
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={form.toolId}
-                onChange={(e) => {
-                  setForm({ ...form, toolId: e.target.value });
-                }}
-              >
-                <option value="" disabled hidden>
-                  Select tool
-                </option>
-                {toolsForCategory.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-              <select
-                value={form.updateType}
-                onChange={(e) => {
-                  setForm({ ...form, updateType: e.target.value });
-                }}
-              >
-                {featureTypeOptions
-                  .filter((type) => type !== "__new__")
-                  .map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-              </select>
-              <select value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value })}>
-                <option>Watch</option>
-                <option>Evaluate</option>
-                <option>Act</option>
-              </select>
-              <input
-                placeholder="Summary"
-                value={form.summary}
-                onChange={(e) => setForm({ ...form, summary: e.target.value })}
-              />
-              <input
-                placeholder="Source URL"
-                value={form.sourceUrl}
-                onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
-              />
-              <input
-                placeholder="Logged by"
-                value={form.loggedBy}
-                onChange={(e) => setForm({ ...form, loggedBy: e.target.value })}
-              />
+                )}
+              </label>
+              <label className="news-field">
+                <span>Impact</span>
+                <select value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value })}>
+                  <option>Watch</option>
+                  <option>Evaluate</option>
+                  <option>Act</option>
+                </select>
+              </label>
+              <label className="news-field">
+                <span>Summary</span>
+                <input
+                  placeholder="Summary"
+                  value={form.summary}
+                  onChange={(e) => setForm({ ...form, summary: e.target.value })}
+                />
+              </label>
+              <label className="news-field">
+                <span>Source URL</span>
+                <input
+                  placeholder="Source URL"
+                  value={form.sourceUrl}
+                  onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })}
+                />
+              </label>
+              <label className="news-field">
+                <span>Logged by</span>
+                <input
+                  placeholder="Logged by"
+                  value={form.loggedBy}
+                  onChange={(e) => setForm({ ...form, loggedBy: e.target.value })}
+                />
+              </label>
               <button className="primary" onClick={submit} disabled={submitting}>
                 {submitting ? "Adding..." : "Add entry"}
               </button>
