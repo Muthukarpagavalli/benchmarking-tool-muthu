@@ -138,6 +138,11 @@ function card(x: number, y: number, w: number, h: number, title: string, lines: 
   ].join("\n");
 }
 
+function measureCardHeight(lines: string[], w: number, minHeight: number) {
+  const wrapped = lines.flatMap((line) => wrapText(line, Math.floor(w / 5.6)));
+  return Math.max(minHeight, wrapped.length * 13 + 40);
+}
+
 function box(title: string, lines: string[], x: number, yTop: number, w: number, minHeight = 90, size = 9.2) {
   const wrapped = lines.flatMap((line) => wrapText(line, Math.floor(w / 5.8)));
   const height = Math.max(minHeight, wrapped.length * (size + 3) + 48);
@@ -324,6 +329,11 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
   const page1Summary = winner
     ? `This workshop evaluated ${vendors.length} CLM vendors against the client's business requirements using weighted scoring agreed during the evaluation session. Based on the workshop results, ${winner.vendor.name} achieved the highest overall score and is recommended for further consideration.`
     : "This workshop evaluated the vendor landscape against the client's business requirements using weighted scoring agreed during the evaluation session.";
+  const cardWidth = (CONTENT_WIDTH - 12) / 2;
+  const stackCardHeight = measureCardHeight(stackLines, cardWidth, 128);
+  const gapCardHeight = measureCardHeight(gapLines, cardWidth, 128);
+  const cardsBottom = PAGE_HEIGHT - 322 - Math.max(stackCardHeight, gapCardHeight);
+  const summaryTop = cardsBottom - 14;
 
   pages.push(
     [
@@ -336,23 +346,9 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
         font: 2,
         color: [1, 1, 1],
       }),
-      card(
-        MARGIN,
-        PAGE_HEIGHT - 322,
-        (CONTENT_WIDTH - 12) / 2,
-        128,
-        "Current Technology Stack",
-        stackLines
-      ),
-      card(
-        MARGIN + (CONTENT_WIDTH - 12) / 2 + 12,
-        PAGE_HEIGHT - 322,
-        (CONTENT_WIDTH - 12) / 2,
-        128,
-        "Gap Analysis",
-        gapLines
-      ),
-      box("Executive Summary", [page1Summary], MARGIN, PAGE_HEIGHT - 410, CONTENT_WIDTH, 102),
+      card(MARGIN, PAGE_HEIGHT - 322 - stackCardHeight, cardWidth, stackCardHeight, "Current Technology Stack", stackLines),
+      card(MARGIN + cardWidth + 12, PAGE_HEIGHT - 322 - gapCardHeight, cardWidth, gapCardHeight, "Gap Analysis", gapLines),
+      box("Executive Summary", [page1Summary], MARGIN, summaryTop, CONTENT_WIDTH, 102, 9.0),
       footer(clientName, framework.name),
     ].join("\n")
   );
