@@ -41,6 +41,8 @@ export default function PeersClient({
   const [standToolId, setStandToolId] = useState("");
   const [standCategoryId, setStandCategoryId] = useState("");
   const [standPanelOpen, setStandPanelOpen] = useState(true);
+  const [newPeerFirmName, setNewPeerFirmName] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [form, setForm] = useState({
     peerFirmId: peerFirms[0]?.id ?? "",
     categoryId: categories[0]?.id ?? "",
@@ -54,7 +56,7 @@ export default function PeersClient({
   const toolsForForm = tools.filter((t) => t.categoryId === form.categoryId);
 
   async function createPeerFirm() {
-    const name = window.prompt("New peer firm name");
+    const name = newPeerFirmName.trim();
     if (!name) return;
     const response = await fetch("/api/peer-firms", {
       method: "POST",
@@ -65,11 +67,12 @@ export default function PeersClient({
     const firm = (await response.json()) as PeerFirm;
     setSelectedPeerFirmId(firm.id);
     setForm((current) => ({ ...current, peerFirmId: firm.id }));
+    setNewPeerFirmName("");
     router.refresh();
   }
 
   async function createCategory() {
-    const name = window.prompt("New category name");
+    const name = newCategoryName.trim();
     if (!name) return;
     const response = await fetch("/api/categories", {
       method: "POST",
@@ -80,6 +83,7 @@ export default function PeersClient({
     const category = (await response.json()) as Category;
     setSelectedCategoryId(category.id);
     setForm((current) => ({ ...current, categoryId: category.id, toolId: "" }));
+    setNewCategoryName("");
     router.refresh();
   }
 
@@ -124,6 +128,25 @@ export default function PeersClient({
       <div className="peers-layout">
         <div className="peers-main">
           <h3 style={{ fontSize: 15, marginTop: 24 }}>Log an adoption sighting</h3>
+          <div className="stack-create-panel" style={{ marginBottom: 12 }}>
+            <div className="stack-create-panel-head">
+              <strong>New peer firm / category</strong>
+            </div>
+            <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr", gap: 8 }}>
+              <div className="form-row">
+                <input placeholder="New peer firm name" value={newPeerFirmName} onChange={(e) => setNewPeerFirmName(e.target.value)} />
+                <button type="button" className="framework-action framework-action-add" onClick={createPeerFirm} aria-label="Add peer firm">
+                  +
+                </button>
+              </div>
+              <div className="form-row">
+                <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+                <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
           <div className="form-row">
             <select value={form.peerFirmId} onChange={(e) => setForm({ ...form, peerFirmId: e.target.value })}>
               {peerFirms.map((f) => (
@@ -131,19 +154,13 @@ export default function PeersClient({
                   {f.name}
                 </option>
               ))}
-              <option value="__new__">+ Add Peer Firm</option>
             </select>
             <select
               value={form.categoryId}
               onChange={(e) => {
-                if (e.target.value === "__new__") {
-                  void createCategory();
-                  return;
-                }
                 setForm({ ...form, categoryId: e.target.value, toolId: "" });
               }}
             >
-              <option value="__new__">+ Add Category</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

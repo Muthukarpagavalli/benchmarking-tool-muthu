@@ -184,6 +184,63 @@ th { background: #f1efe9; font-weight: 600; }
   padding: 5px 7px;
   border-radius: 6px;
 }
+.matrix-number-input {
+  width: 72px;
+  min-width: 72px;
+  text-align: center;
+  border: 1px solid #d9d6cb;
+  background: #fff;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.matrix-number-input:focus,
+.matrix-inline-input:focus,
+.workspace-title-inline input:focus,
+.workspace-client-inline input:focus,
+.framework-item-name input:focus,
+.stack-grid-cell:focus {
+  outline: 2px solid #9db094;
+  outline-offset: 1px;
+}
+.matrix-card table {
+  table-layout: fixed;
+}
+.matrix-card th,
+.matrix-card td {
+  vertical-align: middle;
+}
+.matrix-card td:first-child {
+  min-width: 240px;
+}
+.matrix-card tbody tr:hover {
+  background: #fafcf8;
+}
+.matrix-card tbody tr:hover td {
+  background: #fafcf8;
+}
+.matrix-row-active td {
+  background: #f4f8f1;
+}
+.matrix-cell-active {
+  background: #eef5ea !important;
+  box-shadow: inset 0 0 0 1px #8ca084;
+}
+.matrix-card th[data-matrix-column] {
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+.matrix-card th[data-matrix-column].tool-drop-target.active {
+  background: #e6efe2;
+}
+.matrix-card tbody tr:last-child td {
+  background: #f8fbf6;
+  font-weight: 600;
+}
+.matrix-card thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
 .stack-create-panel {
   border: 1px solid #e7e3d7;
   border-radius: 12px;
@@ -532,6 +589,52 @@ th { background: #f1efe9; font-weight: 600; }
   padding: 0;
   font-size: 14px;
   font-weight: 600;
+}
+.workspace-title-inline {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #1a1a1a;
+  padding: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.workspace-client-inline {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: #1a1a1a;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.workspace-title-inline input,
+.workspace-client-inline input,
+.framework-item-name input {
+  width: 100%;
+  border: 1px solid #d3d1c7;
+  background: #fff;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+.workspace-title-inline button,
+.workspace-client-inline button,
+.framework-item-name button {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.workspace-title-inline button {
+  font-size: 22px;
+  font-weight: 700;
+}
+.workspace-client-inline button,
+.framework-item-name button {
+  text-align: left;
 }
 .framework-item-meta {
   font-size: 11px;

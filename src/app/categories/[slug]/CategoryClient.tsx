@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import InlineTextField from "@/components/InlineTextField";
 
 type FrameworkTool = { id: string; name: string; sortOrder: number };
 type FrameworkCriterion = { id: string; name: string; description: string | null; weight: number; sortOrder: number };
@@ -33,6 +34,20 @@ type PurposeDraft = {
   notes: string;
 };
 
+type FrameworkDraft = {
+  name: string;
+  clientName: string;
+};
+
+type AddToolDraft = {
+  name: string;
+};
+
+type AddCriterionDraft = {
+  name: string;
+  description: string;
+};
+
 type GapDraft = {
   title: string;
   notes: string;
@@ -45,10 +60,14 @@ export default function CategoryClient({
 }) {
   const router = useRouter();
   const [activeFrameworkId, setActiveFrameworkId] = useState(category.frameworks[0]?.id ?? "");
+  const [frameworkDraft, setFrameworkDraft] = useState<FrameworkDraft>({ name: `${category.name} Evaluation`, clientName: "" });
   const [purposeDraft, setPurposeDraft] = useState<PurposeDraft>({ purpose: "", toolName: "", notes: "" });
   const [gapDraft, setGapDraft] = useState<GapDraft>({ title: "", notes: "" });
+  const [toolDraft, setToolDraft] = useState<AddToolDraft>({ name: "" });
+  const [criterionDraft, setCriterionDraft] = useState<AddCriterionDraft>({ name: "", description: "" });
   const [draggedToolId, setDraggedToolId] = useState<string | null>(null);
   const [toolOrder, setToolOrder] = useState<string[]>([]);
+  const [activeMatrixCell, setActiveMatrixCell] = useState<{ criterionId: string; toolId: string } | null>(null);
 
   useEffect(() => {
     if (!activeFrameworkId && category.frameworks[0]?.id) {
@@ -73,14 +92,15 @@ export default function CategoryClient({
   }, [activeFramework?.id, activeFramework?.tools]);
 
   async function createFramework() {
-    const name = window.prompt("Framework name", `${category.name} Evaluation`);
+    const name = frameworkDraft.name.trim();
+    const clientName = frameworkDraft.clientName.trim();
     if (!name) return;
-    const clientName = window.prompt("Client name (optional)", "");
     await fetch(`/api/categories/${category.id}/frameworks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, clientName }),
     });
+    setFrameworkDraft({ name: `${category.name} Evaluation`, clientName: "" });
     router.refresh();
   }
 
@@ -105,7 +125,6 @@ export default function CategoryClient({
   }
 
   async function deleteFramework(frameworkId: string) {
-    if (!window.confirm("Delete this framework?")) return;
     await fetch(`/api/frameworks/${frameworkId}`, { method: "DELETE" });
     if (activeFrameworkId === frameworkId) setActiveFrameworkId("");
     router.refresh();
@@ -113,13 +132,14 @@ export default function CategoryClient({
 
   async function addTool() {
     if (!activeFramework) return;
-    const name = window.prompt("New vendor or tool name");
+    const name = toolDraft.name.trim();
     if (!name) return;
     await fetch(`/api/frameworks/${activeFramework.id}/tools`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
+    setToolDraft({ name: "" });
     router.refresh();
   }
 
@@ -145,7 +165,6 @@ export default function CategoryClient({
   }
 
   async function deleteTool(toolId: string) {
-    if (!window.confirm("Remove this vendor/tool from the framework?")) return;
     await fetch(`/api/framework-tools/${toolId}`, { method: "DELETE" });
     router.refresh();
   }
@@ -174,14 +193,15 @@ export default function CategoryClient({
 
   async function addCriterion() {
     if (!activeFramework) return;
-    const name = window.prompt("New criterion");
+    const name = criterionDraft.name.trim();
+    const description = criterionDraft.description.trim();
     if (!name) return;
-    const description = window.prompt("Scoring hint or description (optional)", "");
     await fetch(`/api/frameworks/${activeFramework.id}/criteria`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, description }),
     });
+    setCriterionDraft({ name: "", description: "" });
     router.refresh();
   }
 
@@ -217,7 +237,6 @@ export default function CategoryClient({
   }
 
   async function deleteCriterion(criterionId: string) {
-    if (!window.confirm("Remove this criterion from the framework?")) return;
     await fetch(`/api/framework-criteria/${criterionId}`, { method: "DELETE" });
     router.refresh();
   }
@@ -272,7 +291,6 @@ export default function CategoryClient({
   }
 
   async function deleteGapItem(id: string) {
-    if (!window.confirm("Remove this gap item?")) return;
     await fetch(`/api/framework-gap-items/${id}`, { method: "DELETE" });
     router.refresh();
   }
@@ -287,13 +305,37 @@ export default function CategoryClient({
   }
 
   async function deleteStackItem(id: string) {
-    if (!window.confirm("Remove this current stack item?")) return;
     await fetch(`/api/framework-stack-items/${id}`, { method: "DELETE" });
     router.refresh();
   }
 
   function findScore(toolId: string, criterionId: string) {
     return activeFramework?.scores.find((score) => score.toolId === toolId && score.criterionId === criterionId)?.score ?? null;
+  }
+
+  function focusMatrixCell(criterionId: string, toolId: string) {
+    const selector = `[data-matrix-cell="${criterionId}:${toolId}"] input`;
+    const element = document.querySelector<HTMLInputElement>(selector);
+    element?.focus();
+  }
+
+  function moveMatrixFocus(criterionId: string, toolId: string, direction: "left" | "right" | "up" | "down") {
+    if (!activeFramework) return;
+    const criteria = activeFramework.criteria;
+    const tools = orderedTools;
+    const criterionIndex = criteria.findIndex((criterion) => criterion.id === criterionId);
+    const toolIndex = tools.findIndex((tool) => tool.id === toolId);
+    if (criterionIndex < 0 || toolIndex < 0) return;
+
+    const nextCriterionIndex =
+      direction === "up" ? Math.max(0, criterionIndex - 1) : direction === "down" ? Math.min(criteria.length - 1, criterionIndex + 1) : criterionIndex;
+    const nextToolIndex =
+      direction === "left" ? Math.max(0, toolIndex - 1) : direction === "right" ? Math.min(tools.length - 1, toolIndex + 1) : toolIndex;
+    const nextCriterion = criteria[nextCriterionIndex];
+    const nextTool = tools[nextToolIndex];
+    if (!nextCriterion || !nextTool) return;
+    setActiveMatrixCell({ criterionId: nextCriterion.id, toolId: nextTool.id });
+    requestAnimationFrame(() => focusMatrixCell(nextCriterion.id, nextTool.id));
   }
 
   const ranked = useMemo(() => {
@@ -323,9 +365,34 @@ export default function CategoryClient({
         <aside className="workspace-sidebar">
           <div className="workspace-header">
             <strong>Frameworks</strong>
-            <button className="framework-action framework-action-add" type="button" onClick={createFramework} aria-label="Add framework">
-              +
-            </button>
+          </div>
+          <div className="stack-create-panel" style={{ marginBottom: 12 }}>
+            <div className="stack-create-panel-head">
+              <strong>New framework</strong>
+            </div>
+            <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr" }}>
+              <label className="workspace-meta-field">
+                Framework name
+                <input
+                  value={frameworkDraft.name}
+                  onChange={(e) => setFrameworkDraft((current) => ({ ...current, name: e.target.value }))}
+                  placeholder={`${category.name} Evaluation`}
+                />
+              </label>
+              <label className="workspace-meta-field">
+                Client name
+                <input
+                  value={frameworkDraft.clientName}
+                  onChange={(e) => setFrameworkDraft((current) => ({ ...current, clientName: e.target.value }))}
+                  placeholder="Optional"
+                />
+              </label>
+            </div>
+            <div className="stack-create-footer">
+              <button type="button" className="framework-action framework-action-add framework-action-add-inline" onClick={createFramework} aria-label="Add framework">
+                +
+              </button>
+            </div>
           </div>
           <div className="framework-list">
             {category.frameworks.length === 0 && <p className="muted">No frameworks yet.</p>}
@@ -337,12 +404,14 @@ export default function CategoryClient({
                 role="button"
                 tabIndex={0}
               >
-                <input
-                  className="framework-item-name"
-                  defaultValue={framework.name}
-                  onBlur={(e) => renameFramework(framework.id, e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                />
+                <div onClick={(e) => e.stopPropagation()} style={{ minWidth: 0, width: "100%" }}>
+                  <InlineTextField
+                    value={framework.name}
+                    onSave={(value) => renameFramework(framework.id, value)}
+                    ariaLabel="Edit framework name"
+                    className="framework-item-name"
+                  />
+                </div>
                 <span
                   className="framework-item-delete framework-action framework-action-delete"
                   role="button"
@@ -369,8 +438,13 @@ export default function CategoryClient({
           ) : (
             <>
               <div className="workspace-toolbar">
-                <div>
-                  <h3 style={{ margin: 0 }}>{activeFramework.name}</h3>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <InlineTextField
+                    value={activeFramework.name}
+                    onSave={(value) => renameFramework(activeFramework.id, value)}
+                    ariaLabel="Edit framework name"
+                    className="workspace-title-inline"
+                  />
                 </div>
                 <a className="export-button" href={`/api/frameworks/${activeFramework.id}/export`}>
                   Export PDF
@@ -381,14 +455,16 @@ export default function CategoryClient({
                   <span className="workspace-meta-label">Date</span>
                   <strong>{new Date(activeFramework.updatedAt).toLocaleDateString()}</strong>
                 </div>
-                <label className="workspace-meta-field workspace-meta-item">
-                  Client name
-                  <input
-                    defaultValue={activeFramework.clientName ?? ""}
+                <div className="workspace-meta-field workspace-meta-item">
+                  <span className="workspace-meta-label">Client name</span>
+                  <InlineTextField
+                    value={activeFramework.clientName ?? ""}
+                    onSave={(value) => saveFrameworkClientName(activeFramework.id, value)}
                     placeholder="e.g. ABC Bank"
-                    onBlur={(e) => saveFrameworkClientName(activeFramework.id, e.target.value)}
+                    ariaLabel="Edit client name"
+                    className="workspace-client-inline"
                   />
-                </label>
+                </div>
               </div>
               <div className="report-card">
                 <div className="report-card-head">
@@ -566,12 +642,34 @@ export default function CategoryClient({
                     <h4 style={{ marginBottom: 4 }}>Section 3: Scoring Matrix</h4>
                   </div>
                   <div className="matrix-toolbar">
-                    <button type="button" className="matrix-action-button" onClick={addTool}>
-                      + Vendor
-                    </button>
-                    <button type="button" className="matrix-action-button" onClick={addCriterion}>
-                      + Criterion
-                    </button>
+                    <div className="matrix-add-group">
+                      <span>Vendor</span>
+                      <div className="matrix-add-row">
+                        <input
+                          className="matrix-inline-input"
+                          value={toolDraft.name}
+                          placeholder="Add vendor"
+                          onChange={(e) => setToolDraft({ name: e.target.value })}
+                        />
+                        <button type="button" className="matrix-action-button" onClick={addTool}>
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <div className="matrix-add-group">
+                      <span>Criterion</span>
+                      <div className="matrix-add-row">
+                        <input
+                          className="matrix-inline-input"
+                          value={criterionDraft.name}
+                          placeholder="Add criterion"
+                          onChange={(e) => setCriterionDraft((current) => ({ ...current, name: e.target.value }))}
+                        />
+                        <button type="button" className="matrix-action-button" onClick={addCriterion}>
+                          +
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <div className="score-rubric">
@@ -589,13 +687,14 @@ export default function CategoryClient({
                   <thead>
                     <tr>
                       <th>Criterion</th>
-                      <th>Weight</th>
+                      <th>Weight %</th>
                       {orderedTools.map((tool) => (
                         <th
                           key={tool.id}
                           className={draggedToolId === tool.id ? "tool-drop-target active" : "tool-drop-target"}
                           onDragOver={(e) => e.preventDefault()}
                           onDrop={() => onToolDrop(tool.id)}
+                          data-matrix-column={tool.id}
                         >
                           <div className="matrix-header">
                             <button
@@ -624,7 +723,11 @@ export default function CategoryClient({
                   </thead>
                   <tbody>
                     {activeFramework.criteria.map((criterion) => (
-                      <tr key={criterion.id}>
+                      <tr
+                        key={criterion.id}
+                        className={activeMatrixCell?.criterionId === criterion.id ? "matrix-row-active" : ""}
+                        data-matrix-row={criterion.id}
+                      >
                         <td>
                           <div className="criterion-cell">
                             <div className="matrix-row-label">
@@ -645,24 +748,48 @@ export default function CategoryClient({
                         </td>
                         <td>
                           <input
-                            className="score-input"
+                            className="matrix-number-input"
                             type="number"
-                            step="0.01"
+                            step="1"
                             min={0}
-                            max={1}
-                            defaultValue={criterion.weight}
-                            onBlur={(e) => saveCriterionWeights(criterion.id, Number(e.target.value))}
+                            max={100}
+                            defaultValue={Math.round(criterion.weight * 100)}
+                            onBlur={(e) => saveCriterionWeights(criterion.id, Number(e.target.value) / 100)}
                           />
                         </td>
                         {orderedTools.map((tool) => (
-                          <td key={tool.id}>
+                          <td
+                            key={tool.id}
+                            className={
+                              activeMatrixCell?.criterionId === criterion.id && activeMatrixCell?.toolId === tool.id
+                                ? "matrix-cell-active"
+                                : ""
+                            }
+                            data-matrix-cell={`${criterion.id}:${tool.id}`}
+                          >
                             <input
-                              className="score-input"
+                              className="matrix-number-input"
                               type="number"
                               min={1}
                               max={5}
                               defaultValue={findScore(tool.id, criterion.id) ?? ""}
+                              onFocus={() => setActiveMatrixCell({ criterionId: criterion.id, toolId: tool.id })}
                               onBlur={(e) => saveScore(tool.id, criterion.id, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "ArrowLeft") {
+                                  e.preventDefault();
+                                  moveMatrixFocus(criterion.id, tool.id, "left");
+                                } else if (e.key === "ArrowRight") {
+                                  e.preventDefault();
+                                  moveMatrixFocus(criterion.id, tool.id, "right");
+                                } else if (e.key === "ArrowUp") {
+                                  e.preventDefault();
+                                  moveMatrixFocus(criterion.id, tool.id, "up");
+                                } else if (e.key === "ArrowDown") {
+                                  e.preventDefault();
+                                  moveMatrixFocus(criterion.id, tool.id, "down");
+                                }
+                              }}
                             />
                           </td>
                         ))}

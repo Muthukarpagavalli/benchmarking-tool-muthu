@@ -42,6 +42,9 @@ export default function NewsClient({
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [featureTypeOptions, setFeatureTypeOptions] = useState(featureTypes);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [newToolName, setNewToolName] = useState("");
+  const [newFeatureTypeName, setNewFeatureTypeName] = useState("");
   const [form, setForm] = useState({
     categoryId: categories[0]?.id ?? "",
     toolId: "",
@@ -70,7 +73,7 @@ export default function NewsClient({
   const filteredTools = tools.filter((t) => !filterCategoryId || t.categoryId === filterCategoryId);
 
   async function createCategory() {
-    const name = window.prompt("New category name");
+    const name = newCategoryName.trim();
     if (!name) return;
     const response = await fetch("/api/categories", {
       method: "POST",
@@ -80,6 +83,7 @@ export default function NewsClient({
     if (!response.ok) return;
     const category = (await response.json()) as Category;
     setForm((current) => ({ ...current, categoryId: category.id, toolId: "" }));
+    setNewCategoryName("");
     router.refresh();
   }
 
@@ -97,16 +101,15 @@ export default function NewsClient({
   }
 
   async function createFeatureType() {
-    const value = window.prompt("New feature type");
-    if (!value) return;
-    const trimmed = value.trim();
+    const trimmed = newFeatureTypeName.trim();
     if (!trimmed) return;
     setFeatureTypeOptions((current) => (current.includes(trimmed) ? current : [...current, trimmed].sort((a, b) => a.localeCompare(b))));
     setForm((current) => ({ ...current, updateType: trimmed }));
+    setNewFeatureTypeName("");
   }
 
   async function createTool() {
-    const name = window.prompt("New tool name");
+    const name = newToolName.trim();
     if (!name) return;
     const response = await fetch(`/api/categories/${form.categoryId}/tools`, {
       method: "POST",
@@ -116,6 +119,7 @@ export default function NewsClient({
     if (!response.ok) return;
     const tool = (await response.json()) as Tool;
     setForm((current) => ({ ...current, toolId: tool.id }));
+    setNewToolName("");
     router.refresh();
   }
 
@@ -216,17 +220,37 @@ export default function NewsClient({
           <div className="report-card news-entry-card">
             <h4>New entry</h4>
             <div className="stack-list">
+              <div className="stack-create-panel">
+                <div className="stack-create-panel-head">
+                  <strong>New category / tool / type</strong>
+                </div>
+                <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr", gap: 8 }}>
+                  <div className="form-row">
+                    <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+                    <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
+                      +
+                    </button>
+                  </div>
+                  <div className="form-row">
+                    <input placeholder="New tool name" value={newToolName} onChange={(e) => setNewToolName(e.target.value)} />
+                    <button type="button" className="framework-action framework-action-add" onClick={createTool} aria-label="Add tool">
+                      +
+                    </button>
+                  </div>
+                  <div className="form-row">
+                    <input placeholder="New feature type" value={newFeatureTypeName} onChange={(e) => setNewFeatureTypeName(e.target.value)} />
+                    <button type="button" className="framework-action framework-action-add" onClick={createFeatureType} aria-label="Add feature type">
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
               <select
                 value={form.categoryId}
                 onChange={(e) => {
-                  if (e.target.value === "__new__") {
-                    void createCategory();
-                    return;
-                  }
                   setForm({ ...form, categoryId: e.target.value, toolId: "" });
                 }}
               >
-                <option value="__new__">+ New Category</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
@@ -236,17 +260,12 @@ export default function NewsClient({
               <select
                 value={form.toolId}
                 onChange={(e) => {
-                  if (e.target.value === "__new__") {
-                    void createTool();
-                    return;
-                  }
                   setForm({ ...form, toolId: e.target.value });
                 }}
               >
                 <option value="" disabled hidden>
-                  + Add Tool
+                  Select tool
                 </option>
-                <option value="__new__">+ Add Tool</option>
                 {toolsForCategory.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -257,14 +276,9 @@ export default function NewsClient({
               <select
                 value={form.updateType}
                 onChange={(e) => {
-                  if (e.target.value === "__new__") {
-                    void createFeatureType();
-                    return;
-                  }
                   setForm({ ...form, updateType: e.target.value });
                 }}
               >
-                <option value="__new__">+ New Feature Type</option>
                 {featureTypeOptions
                   .filter((type) => type !== "__new__")
                   .map((type) => (
