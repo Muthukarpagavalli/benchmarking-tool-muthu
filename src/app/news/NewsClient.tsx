@@ -37,6 +37,18 @@ export default function NewsClient({
   };
 }) {
   const router = useRouter();
+  type EditDraft = {
+    categoryChoice: "existing" | "new";
+    categoryId: string;
+    categoryName: string;
+    toolId: string;
+    date: string;
+    updateType: string;
+    summary: string;
+    sourceUrl: string;
+    impact: string;
+    loggedBy: string;
+  };
   const [filterCategoryId, setFilterCategoryId] = useState("");
   const [filterToolId, setFilterToolId] = useState("");
   const [filterFeatureType, setFilterFeatureType] = useState("");
@@ -49,6 +61,8 @@ export default function NewsClient({
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newToolName, setNewToolName] = useState("");
   const [newFeatureTypeName, setNewFeatureTypeName] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null);
   const [form, setForm] = useState({
     categoryId: categories[0]?.id ?? "",
     toolId: "",
@@ -75,6 +89,45 @@ export default function NewsClient({
 
   const toolsForCategory = categoryChoice === "existing" && form.categoryId ? tools.filter((t) => t.categoryId === form.categoryId) : tools;
   const filteredTools = tools.filter((t) => !filterCategoryId || t.categoryId === filterCategoryId);
+
+  function beginEdit(entry: NewsEntry) {
+    setEditingId(entry.id);
+    setEditDraft({
+      categoryChoice: entry.category ? "existing" : "new",
+      categoryId: entry.category?.id ?? "",
+      categoryName: entry.categoryName ?? "",
+      toolId: entry.tool?.id ?? "",
+      date: entry.date.slice(0, 10),
+      updateType: entry.updateType,
+      summary: entry.summary,
+      sourceUrl: entry.sourceUrl ?? "",
+      impact: entry.impact,
+      loggedBy: entry.loggedBy,
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditDraft(null);
+  }
+
+  async function saveEdit(id: string) {
+    if (!editDraft) return;
+    const payload = {
+      ...editDraft,
+      categoryId: editDraft.categoryChoice === "existing" ? editDraft.categoryId : "",
+      categoryName: editDraft.categoryChoice === "new" ? editDraft.categoryName.trim() : "",
+    };
+    if ((!payload.categoryId && !payload.categoryName) || !payload.date || !payload.updateType || !payload.summary || !payload.loggedBy) return;
+    const response = await fetch(`/api/news/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) return;
+    cancelEdit();
+    router.refresh();
+  }
 
   async function submit() {
     const categoryName = newCategoryName.trim();
@@ -191,25 +244,130 @@ export default function NewsClient({
             <span>Type</span>
             <span>Summary</span>
             <span>Impact</span>
+            <span>Action</span>
           </div>
           {filtered.map((e) => (
             <div className="news-row" key={e.id}>
-              <span>{new Date(e.date).toLocaleDateString()}</span>
-              <span>{e.category?.name ?? e.categoryName ?? "-"}</span>
-              <span>{e.tool?.name ?? "-"}</span>
-              <span>{e.updateType}</span>
-              <span>
-                {e.summary}
-                {e.sourceUrl && (
-                  <>
-                    {" "}
-                    <a href={e.sourceUrl} target="_blank" rel="noreferrer">
-                      source
-                    </a>
-                  </>
-                )}
-              </span>
-              <span className={`impact-${e.impact}`}>{e.impact}</span>
+              {editingId === e.id && editDraft ? (
+                <>
+                  <span>
+                    <input
+                      type="date"
+                      value={editDraft.date}
+                      onChange={(ev) => setEditDraft({ ...editDraft, date: ev.target.value })}
+                    />
+                  </span>
+                  <span>
+                    <select
+                      value={editDraft.categoryChoice === "new" ? "__new__" : editDraft.categoryId || "__select__"}
+                      onChange={(ev) => {
+                        if (ev.target.value === "__new__") {
+                          setEditDraft({ ...editDraft, categoryChoice: "new", categoryId: "", toolId: "" });
+                          return;
+                        }
+                        setEditDraft({ ...editDraft, categoryChoice: "existing", categoryId: ev.target.value, categoryName: "", toolId: "" });
+                      }}
+                    >
+                      <option value="__select__" disabled hidden>
+                        Select category
+                      </option>
+                      <option value="__new__">+ New category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    {editDraft.categoryChoice === "new" && (
+                      <input
+                        style={{ marginTop: 6 }}
+                        placeholder="New category name"
+                        value={editDraft.categoryName}
+                        onChange={(ev) => setEditDraft({ ...editDraft, categoryName: ev.target.value })}
+                      />
+                    )}
+                  </span>
+                  <span>
+                    <select
+                      value={editDraft.toolId || "__select__"}
+                      onChange={(ev) => setEditDraft({ ...editDraft, toolId: ev.target.value })}
+                    >
+                      <option value="__select__" disabled hidden>
+                        Select tool
+                      </option>
+                      <option value="">No tool</option>
+                      {tools.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                  <span>
+                    <input
+                      value={editDraft.updateType}
+                      onChange={(ev) => setEditDraft({ ...editDraft, updateType: ev.target.value })}
+                    />
+                  </span>
+                  <span>
+                    <input
+                      value={editDraft.summary}
+                      onChange={(ev) => setEditDraft({ ...editDraft, summary: ev.target.value })}
+                    />
+                    <input
+                      style={{ marginTop: 6 }}
+                      value={editDraft.sourceUrl}
+                      onChange={(ev) => setEditDraft({ ...editDraft, sourceUrl: ev.target.value })}
+                      placeholder="Source URL"
+                    />
+                  </span>
+                  <span>
+                    <select value={editDraft.impact} onChange={(ev) => setEditDraft({ ...editDraft, impact: ev.target.value })}>
+                      <option>Watch</option>
+                      <option>Evaluate</option>
+                      <option>Act</option>
+                    </select>
+                    <input
+                      style={{ marginTop: 6 }}
+                      value={editDraft.loggedBy}
+                      onChange={(ev) => setEditDraft({ ...editDraft, loggedBy: ev.target.value })}
+                      placeholder="Logged by"
+                    />
+                  </span>
+                  <span style={{ display: "flex", gap: 8 }}>
+                    <button type="button" className="secondary" onClick={cancelEdit}>
+                      Cancel
+                    </button>
+                    <button type="button" className="primary" onClick={() => saveEdit(e.id)}>
+                      Save
+                    </button>
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>{new Date(e.date).toLocaleDateString()}</span>
+                  <span>{e.category?.name ?? e.categoryName ?? "-"}</span>
+                  <span>{e.tool?.name ?? "-"}</span>
+                  <span>{e.updateType}</span>
+                  <span>
+                    {e.summary}
+                    {e.sourceUrl && (
+                      <>
+                        {" "}
+                        <a href={e.sourceUrl} target="_blank" rel="noreferrer">
+                          source
+                        </a>
+                      </>
+                    )}
+                  </span>
+                  <span className={`impact-${e.impact}`}>{e.impact}</span>
+                  <span>
+                    <button type="button" className="secondary" onClick={() => beginEdit(e)}>
+                      Edit
+                    </button>
+                  </span>
+                </>
+              )}
             </div>
           ))}
           {filtered.length === 0 && <p className="muted">No entries yet for this filter.</p>}
