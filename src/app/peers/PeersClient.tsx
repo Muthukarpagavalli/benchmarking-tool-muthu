@@ -41,6 +41,8 @@ export default function PeersClient({
   const [standToolId, setStandToolId] = useState("");
   const [standCategoryId, setStandCategoryId] = useState("");
   const [standPanelOpen, setStandPanelOpen] = useState(true);
+  const [peerChoice, setPeerChoice] = useState<"existing" | "new">("existing");
+  const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
   const [newPeerFirmName, setNewPeerFirmName] = useState("");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [form, setForm] = useState({
@@ -67,6 +69,7 @@ export default function PeersClient({
     const firm = (await response.json()) as PeerFirm;
     setSelectedPeerFirmId(firm.id);
     setForm((current) => ({ ...current, peerFirmId: firm.id }));
+    setPeerChoice("existing");
     setNewPeerFirmName("");
     router.refresh();
   }
@@ -83,6 +86,7 @@ export default function PeersClient({
     const category = (await response.json()) as Category;
     setSelectedCategoryId(category.id);
     setForm((current) => ({ ...current, categoryId: category.id, toolId: "" }));
+    setCategoryChoice("existing");
     setNewCategoryName("");
     router.refresh();
   }
@@ -132,58 +136,118 @@ export default function PeersClient({
             <div className="stack-create-panel-head">
               <strong>New peer firm / category</strong>
             </div>
-            <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr", gap: 8 }}>
-              <div className="form-row">
-                <input placeholder="New peer firm name" value={newPeerFirmName} onChange={(e) => setNewPeerFirmName(e.target.value)} />
-                <button type="button" className="framework-action framework-action-add" onClick={createPeerFirm} aria-label="Add peer firm">
-                  +
-                </button>
-              </div>
-              <div className="form-row">
-                <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
-                <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
-                  +
-                </button>
-              </div>
+            <div className="stack-create-grid" style={{ gridTemplateColumns: "1fr", gap: 10 }}>
+              <label className="news-field">
+                <span>Peer firm</span>
+                <select
+                  value={peerChoice === "new" ? "__new__" : form.peerFirmId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setPeerChoice("new");
+                      return;
+                    }
+                    setPeerChoice("existing");
+                    setForm({ ...form, peerFirmId: e.target.value });
+                  }}
+                >
+                  <option value="__new__">+ New peer firm</option>
+                  {peerFirms.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+                {peerChoice === "new" && (
+                  <div className="form-row">
+                    <input placeholder="New peer firm name" value={newPeerFirmName} onChange={(e) => setNewPeerFirmName(e.target.value)} />
+                    <button type="button" className="framework-action framework-action-add" onClick={createPeerFirm} aria-label="Add peer firm">
+                      +
+                    </button>
+                  </div>
+                )}
+              </label>
+              <label className="news-field">
+                <span>Category</span>
+                <select
+                  value={categoryChoice === "new" ? "__new__" : form.categoryId}
+                  onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setCategoryChoice("new");
+                      return;
+                    }
+                    setCategoryChoice("existing");
+                    setForm({ ...form, categoryId: e.target.value, toolId: "" });
+                  }}
+                >
+                  <option value="__new__">+ New category</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                {categoryChoice === "new" && (
+                  <div className="form-row">
+                    <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
+                    <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
+                      +
+                    </button>
+                  </div>
+                )}
+              </label>
             </div>
           </div>
-          <div className="form-row">
-            <select value={form.peerFirmId} onChange={(e) => setForm({ ...form, peerFirmId: e.target.value })}>
-              {peerFirms.map((f) => (
-                <option key={f.id} value={f.id}>
-                  {f.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={form.categoryId}
-              onChange={(e) => {
-                setForm({ ...form, categoryId: e.target.value, toolId: "" });
-              }}
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <select value={form.toolId} onChange={(e) => setForm({ ...form, toolId: e.target.value })}>
-              <option value="">(unspecified tool)</option>
-              {toolsForForm.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+          <div className="form-row peer-sighting-row">
+            <label className="news-field">
+              <span>Firm</span>
+              <select value={form.peerFirmId} onChange={(e) => setForm({ ...form, peerFirmId: e.target.value })}>
+                {peerFirms.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="news-field">
+              <span>Category</span>
+              <select
+                value={form.categoryId}
+                onChange={(e) => {
+                  setForm({ ...form, categoryId: e.target.value, toolId: "" });
+                }}
+              >
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="news-field">
+              <span>Tool</span>
+              <select value={form.toolId} onChange={(e) => setForm({ ...form, toolId: e.target.value })}>
+                <option value="">(unspecified tool)</option>
+                {toolsForForm.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
-          <div className="form-row">
-            <input
-              placeholder="Source note (e.g. mentioned in Law.com article about their AI rollout)"
-              value={form.sourceNote}
-              onChange={(e) => setForm({ ...form, sourceNote: e.target.value })}
-              style={{ flex: 3 }}
-            />
-            <input placeholder="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
+          <div className="form-row peer-sighting-row">
+            <label className="news-field" style={{ flex: 3 }}>
+              <span>Source note</span>
+              <input
+                placeholder="e.g. mentioned in Law.com article about their AI rollout"
+                value={form.sourceNote}
+                onChange={(e) => setForm({ ...form, sourceNote: e.target.value })}
+              />
+            </label>
+            <label className="news-field" style={{ flex: 1.4 }}>
+              <span>Source URL</span>
+              <input placeholder="Source URL" value={form.sourceUrl} onChange={(e) => setForm({ ...form, sourceUrl: e.target.value })} />
+            </label>
             <button className="primary" onClick={submitAdoption} disabled={submitting}>
               {submitting ? "Adding..." : "Log sighting"}
             </button>

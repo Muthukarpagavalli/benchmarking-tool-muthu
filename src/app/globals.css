@@ -377,6 +377,10 @@ th { background: #f1efe9; font-weight: 600; }
   width: 100%;
 }
 
+.peer-sighting-row {
+  align-items: end;
+}
+
 .gap-create-panel {
   border: 1px solid #e7e3d7;
   border-radius: 12px;
