@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import CategoryDescriptionEditor from "@/components/CategoryDescriptionEditor";
+import CategoryCreateForm from "@/components/CategoryCreateForm";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +34,7 @@ export default async function Home() {
         adoption tracking, peer benchmarking, and scoring frameworks by category. Click a category to explore
         or edit it.
       </p>
+      <CategoryCreateForm />
       {dbError ? (
         <div
           style={{
@@ -54,7 +55,6 @@ export default async function Home() {
             <h3>{displayCategoryName(c)}</h3>
             <p>{cleanDescription(c.description)}</p>
             <p style={{ marginTop: 8 }}>{c.tools.length} tools tracked</p>
-            <CategoryDescriptionEditor categoryId={c.id} initialDescription={c.description} />
             <a className="category-open-link" href={`/categories/${c.slug}`}>
               Open category
             </a>

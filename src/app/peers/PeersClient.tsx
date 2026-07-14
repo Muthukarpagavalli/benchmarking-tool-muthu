@@ -35,17 +35,13 @@ export default function PeersClient({
   };
 }) {
   const router = useRouter();
-  const [selectedCategoryId, setSelectedCategoryId] = useState(categories[0]?.id ?? "");
-  const [selectedPeerFirmId, setSelectedPeerFirmId] = useState(peerFirms[0]?.id ?? "");
   const [standFirmId, setStandFirmId] = useState("");
   const [standToolId, setStandToolId] = useState("");
   const [standCategoryId, setStandCategoryId] = useState("");
   const [standPanelOpen, setStandPanelOpen] = useState(true);
   const [peerChoice, setPeerChoice] = useState<"existing" | "new">("existing");
-  const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
   const [toolChoice, setToolChoice] = useState<"existing" | "new">("existing");
   const [newPeerFirmName, setNewPeerFirmName] = useState("");
-  const [newCategoryName, setNewCategoryName] = useState("");
   const [newToolName, setNewToolName] = useState("");
   const [form, setForm] = useState({
     peerFirmId: peerFirms[0]?.id ?? "",
@@ -69,27 +65,9 @@ export default function PeersClient({
     });
     if (!response.ok) return;
     const firm = (await response.json()) as PeerFirm;
-    setSelectedPeerFirmId(firm.id);
     setForm((current) => ({ ...current, peerFirmId: firm.id }));
     setPeerChoice("existing");
     setNewPeerFirmName("");
-    router.refresh();
-  }
-
-  async function createCategory() {
-    const name = newCategoryName.trim();
-    if (!name) return;
-    const response = await fetch("/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    if (!response.ok) return;
-    const category = (await response.json()) as Category;
-    setSelectedCategoryId(category.id);
-    setForm((current) => ({ ...current, categoryId: category.id, toolId: "" }));
-    setCategoryChoice("existing");
-    setNewCategoryName("");
     router.refresh();
   }
 
@@ -191,35 +169,17 @@ export default function PeersClient({
               <label className="news-field">
                 <span>Category</span>
                 <select
-                  value={categoryChoice === "new" ? "__new__" : form.categoryId || "__select__"}
+                  value={form.categoryId}
                   onChange={(e) => {
-                    if (e.target.value === "__new__") {
-                      setCategoryChoice("new");
-                      return;
-                    }
-                    if (e.target.value === "__select__") return;
-                    setCategoryChoice("existing");
                     setForm({ ...form, categoryId: e.target.value, toolId: "" });
                   }}
                 >
-                  <option value="__select__" disabled>
-                    Select or add category
-                  </option>
-                  <option value="__new__">+ New category</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
                 </select>
-                {categoryChoice === "new" && (
-                  <div className="form-row">
-                    <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
-                    <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
-                      +
-                    </button>
-                  </div>
-                )}
               </label>
               <label className="news-field">
                 <span>Tool</span>

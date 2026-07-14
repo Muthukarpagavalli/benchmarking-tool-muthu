@@ -42,10 +42,8 @@ export default function NewsClient({
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [featureTypeOptions, setFeatureTypeOptions] = useState(featureTypes);
-  const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
   const [toolChoice, setToolChoice] = useState<"existing" | "new">("existing");
   const [typeChoice, setTypeChoice] = useState<"existing" | "new">("existing");
-  const [newCategoryName, setNewCategoryName] = useState("");
   const [newToolName, setNewToolName] = useState("");
   const [newFeatureTypeName, setNewFeatureTypeName] = useState("");
   const [form, setForm] = useState({
@@ -74,22 +72,6 @@ export default function NewsClient({
 
   const toolsForCategory = tools.filter((t) => t.categoryId === form.categoryId);
   const filteredTools = tools.filter((t) => !filterCategoryId || t.categoryId === filterCategoryId);
-
-  async function createCategory() {
-    const name = newCategoryName.trim();
-    if (!name) return;
-    const response = await fetch("/api/categories", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
-    });
-    if (!response.ok) return;
-    const category = (await response.json()) as Category;
-    setForm((current) => ({ ...current, categoryId: category.id, toolId: "" }));
-    setCategoryChoice("existing");
-    setNewCategoryName("");
-    router.refresh();
-  }
 
   async function submit() {
     if (!form.summary || !form.loggedBy) return;
@@ -229,31 +211,17 @@ export default function NewsClient({
               <label className="news-field">
                 <span>Category</span>
                 <select
-                  value={categoryChoice === "new" ? "__new__" : form.categoryId}
+                  value={form.categoryId}
                   onChange={(e) => {
-                    if (e.target.value === "__new__") {
-                      setCategoryChoice("new");
-                      return;
-                    }
-                    setCategoryChoice("existing");
                     setForm({ ...form, categoryId: e.target.value, toolId: "" });
                   }}
                 >
-                  <option value="__new__">+ New category</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
                 </select>
-                {categoryChoice === "new" && (
-                  <div className="form-row">
-                    <input placeholder="New category name" value={newCategoryName} onChange={(e) => setNewCategoryName(e.target.value)} />
-                    <button type="button" className="framework-action framework-action-add" onClick={createCategory} aria-label="Add category">
-                      +
-                    </button>
-                  </div>
-                )}
               </label>
               <label className="news-field">
                 <span>Tool</span>
