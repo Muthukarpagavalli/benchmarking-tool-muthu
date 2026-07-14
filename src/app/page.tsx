@@ -32,8 +32,7 @@ export default async function Home() {
       <h2>Client Advisory Workspace</h2>
       <p className="muted">
         A single workspace for market research across tools and firms, combining feature comparison matrices,
-        adoption tracking, peer benchmarking, and scoring frameworks by category. Click a category to explore
-        or edit it.
+        adoption tracking, peer benchmarking, and scoring frameworks by category. Click a category to explore.
       </p>
       {dbError ? (
         <div

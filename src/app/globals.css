@@ -98,13 +98,14 @@ p.muted { color: #666; font-size: 12px; line-height: 1.5; }
 
 .dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 22px;
+  grid-template-columns: minmax(0, 1.15fr) 300px;
+  gap: 32px;
   align-items: start;
   margin-top: 18px;
 }
 .dashboard-cards {
   margin-top: 0;
+  padding-right: 4px;
 }
 .category-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
 .category-card {
@@ -135,6 +136,9 @@ p.muted { color: #666; font-size: 12px; line-height: 1.5; }
   background: #fff;
   display: grid;
   gap: 10px;
+  justify-self: end;
+  width: 100%;
+  max-width: 300px;
 }
 .category-create-grid {
   display: grid;
