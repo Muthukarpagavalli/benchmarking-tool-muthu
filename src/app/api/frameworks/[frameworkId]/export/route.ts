@@ -128,22 +128,24 @@ function footer(clientName: string, frameworkName: string) {
 }
 
 function card(x: number, y: number, w: number, h: number, title: string, lines: string[]) {
+  const wrapped = lines.flatMap((line) => wrapText(line, Math.floor(w / 5.6)));
+  const height = Math.max(h, wrapped.length * 13 + 40);
   return [
-    rectOps(x, y, w, h, [1, 1, 1], [0.84, 0.89, 0.84]),
-    rectOps(x, y + h - 24, w, 24, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
-    textOps([title], x + 10, y + h - 9, { size: 11.2, font: 2, color: [1, 1, 1] }),
-    textOps(lines.flatMap((line) => wrapText(line, Math.floor(w / 5.6))), x + 10, y + h - 38, { size: 8.9, color: [0.16, 0.19, 0.17] }),
+    rectOps(x, y, w, height, [1, 1, 1], [0.84, 0.89, 0.84]),
+    rectOps(x, y + height - 24, w, 24, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
+    textOps([title], x + 10, y + height - 9, { size: 11.2, font: 2, color: [1, 1, 1] }),
+    textOps(wrapped, x + 10, y + height - 38, { size: 8.5, color: [0.16, 0.19, 0.17], lineGap: 11 }),
   ].join("\n");
 }
 
-function box(title: string, lines: string[], x: number, yTop: number, w: number, minHeight = 90) {
+function box(title: string, lines: string[], x: number, yTop: number, w: number, minHeight = 90, size = 9.2) {
   const wrapped = lines.flatMap((line) => wrapText(line, Math.floor(w / 5.8)));
-  const height = Math.max(minHeight, wrapped.length * 13 + 48);
+  const height = Math.max(minHeight, wrapped.length * (size + 3) + 48);
   return [
     rectOps(x, yTop - height, w, height, [1, 1, 1], [0.84, 0.89, 0.84]),
     rectOps(x, yTop - 24, w, 24, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
     textOps([title], x + 10, yTop - 9, { size: 11, font: 2, color: [1, 1, 1] }),
-    textOps(wrapped, x + 10, yTop - 38, { size: 9.2, lineGap: 12, color: [0.16, 0.19, 0.17] }),
+    textOps(wrapped, x + 10, yTop - 38, { size, lineGap: size + 3, color: [0.16, 0.19, 0.17] }),
   ].join("\n");
 }
 
@@ -263,10 +265,7 @@ function matrixPages(criteria: CriterionRow[], vendors: VendorRow[], scoreMap: S
         return [criterion.name, `${Math.round(criterion.weight * 100)}%`, ...scores];
       });
       pages.push(
-        [
-          textOps(["Scoring Matrix"], MARGIN, PAGE_HEIGHT - 108, { size: 14, font: 2, color: [0.15, 0.28, 0.19] }),
-          tablePage("", headers, rows, colWidths, clientName, pageNumber, totalPages),
-        ].join("\n")
+        tablePage("Scoring Matrix", headers, rows, colWidths, clientName, pageNumber, totalPages)
       );
       pageNumber += 1;
     }
@@ -358,13 +357,13 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
     ].join("\n")
   );
 
-  const rankingRows = ranked.map((entry, index) => [String(index + 1), entry.vendor.name, entry.weightedTotal.toFixed(1), entry.recommendation]);
+  const rankingRows = ranked.map((entry, index) => [String(index + 1), entry.vendor.name, entry.weightedTotal.toFixed(1)]);
   pages.push(
     tablePage(
       "Vendor Ranking",
-      ["Rank", "Vendor", "Weighted Score", "Recommendation"],
+      ["Rank", "Vendor", "Weighted Score"],
       rankingRows,
-      [44, 190, 98, 132],
+      [44, 250, 128],
       clientName,
       2,
       totalPages
@@ -387,7 +386,8 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
         MARGIN,
         PAGE_HEIGHT - 144,
         CONTENT_WIDTH,
-        120
+        120,
+        9.0
       ),
       footer(clientName, framework.name),
     ].join("\n")
