@@ -247,7 +247,21 @@ export default function NewsClient({
             <span>Action</span>
           </div>
           {filtered.map((e) => (
-            <div className="news-row" key={e.id}>
+            <div
+              className={`news-row ${editingId === e.id ? "news-row-editing" : "news-row-clickable"}`}
+              key={e.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => {
+                if (editingId !== e.id) beginEdit(e);
+              }}
+              onKeyDown={(ev) => {
+                if ((ev.key === "Enter" || ev.key === " ") && editingId !== e.id) {
+                  ev.preventDefault();
+                  beginEdit(e);
+                }
+              }}
+            >
               {editingId === e.id && editDraft ? (
                 <>
                   <span>
@@ -361,11 +375,7 @@ export default function NewsClient({
                     )}
                   </span>
                   <span className={`impact-${e.impact}`}>{e.impact}</span>
-                  <span>
-                    <button type="button" className="secondary" onClick={() => beginEdit(e)}>
-                      Edit
-                    </button>
-                  </span>
+                  <span />
                 </>
               )}
             </div>
