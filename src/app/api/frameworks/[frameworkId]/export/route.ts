@@ -109,15 +109,25 @@ function safePdfName(text: string) {
   return text.replace(/[^a-z0-9]+/gi, "_").replace(/^_+|_+$/g, "") || "framework_report";
 }
 
-function pageHeader(clientName: string, pageNumber: number, totalPages: number) {
+function pageHeader(reportLabel: string, clientName: string, pageNumber: number, totalPages: number) {
   return [
     rectOps(0, 0, PAGE_WIDTH, PAGE_HEIGHT, [0.99, 0.99, 0.985]),
     rectOps(0, PAGE_HEIGHT - 72, PAGE_WIDTH, 72, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
-    textOps([`CLM Evaluation Report for ${clientName}`], MARGIN, PAGE_HEIGHT - 24, { size: 18, font: 2, color: [1, 1, 1] }),
+    textOps([`${reportLabel} for ${clientName}`], MARGIN, PAGE_HEIGHT - 24, { size: 18, font: 2, color: [1, 1, 1] }),
     textOps([`Page ${pageNumber}`], PAGE_WIDTH - MARGIN - 40, PAGE_HEIGHT - 24, { size: 9, color: [0.93, 0.96, 0.93] }),
     rectOps(0, 0, PAGE_WIDTH, FOOTER_HEIGHT, [0.985, 0.988, 0.982], [0.88, 0.91, 0.88]),
     textOps([`Page ${pageNumber} of ${totalPages}`], PAGE_WIDTH - MARGIN - 84, 18, { size: 8.2, color: [0.26, 0.33, 0.27] }),
   ].join("\n");
+}
+
+function categoryLabel(name: string) {
+  const normalized = name.trim();
+  if (!normalized) return "Evaluation Report";
+  if (/clm/i.test(normalized)) return "CLM Evaluation Report";
+  if (/dms/i.test(normalized)) return "DMS Evaluation Report";
+  if (/e-?discovery/i.test(normalized)) return "E-Discovery Evaluation Report";
+  if (/genai/i.test(normalized)) return "GenAI Evaluation Report";
+  return `${normalized} Evaluation Report`;
 }
 
 function footer(clientName: string, frameworkName: string) {
@@ -164,6 +174,7 @@ function tablePage(
   headers: string[],
   rows: string[][],
   colWidths: number[],
+  reportLabel: string,
   clientName: string,
   pageNumber: number,
   totalPages: number
@@ -180,7 +191,7 @@ function tablePage(
   const bodyBottom = bodyTop - totalHeight;
   if (bodyBottom < FOOTER_HEIGHT + 14) throw new Error("Table too tall for page");
 
-  let output = `${pageHeader(clientName, pageNumber, totalPages)}\n${textOps([title], MARGIN, headerTop, { size: 14, font: 2, color: [0.15, 0.28, 0.19] })}`;
+  let output = `${pageHeader(reportLabel, clientName, pageNumber, totalPages)}\n${textOps([title], MARGIN, headerTop, { size: 14, font: 2, color: [0.15, 0.28, 0.19] })}`;
   output += `\n${rectOps(tableX, bodyBottom, tableW, totalHeight, [1, 1, 1], [0.84, 0.89, 0.84])}`;
   output += `\n${rectOps(tableX, bodyTop - headerH, tableW, headerH, [0.25, 0.39, 0.30], [0.88, 0.92, 0.88])}`;
 
@@ -248,7 +259,7 @@ function avgScore(values: Array<number | null | undefined>) {
   return clean.reduce((a, b) => a + b, 0) / clean.length;
 }
 
-function matrixPages(criteria: CriterionRow[], vendors: VendorRow[], scoreMap: ScoreMap, clientName: string, startPage: number, totalPages: number) {
+function matrixPages(criteria: CriterionRow[], vendors: VendorRow[], scoreMap: ScoreMap, reportLabel: string, clientName: string, startPage: number, totalPages: number) {
   const pages: Page[] = [];
   const criterionChunks: CriterionRow[][] = [];
   for (let i = 0; i < criteria.length; i += 18) criterionChunks.push(criteria.slice(i, i + 18));
@@ -270,7 +281,7 @@ function matrixPages(criteria: CriterionRow[], vendors: VendorRow[], scoreMap: S
         return [criterion.name, `${Math.round(criterion.weight * 100)}%`, ...scores];
       });
       pages.push(
-        tablePage("Scoring Matrix", headers, rows, colWidths, clientName, pageNumber, totalPages)
+        tablePage("Scoring Matrix", headers, rows, colWidths, reportLabel, clientName, pageNumber, totalPages)
       );
       pageNumber += 1;
     }
@@ -293,6 +304,7 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
   if (!framework) return new Response("Framework not found", { status: 404 });
 
   const clientName = framework.clientName?.trim() || framework.name;
+  const reportLabel = categoryLabel(framework.category?.name ?? "");
   const criteria: CriterionRow[] = [...framework.criteria].sort((a, b) => a.sortOrder - b.sortOrder);
   const vendors: VendorRow[] = [...framework.tools].sort((a, b) => a.sortOrder - b.sortOrder);
   const scoreMap: ScoreMap = new Map(framework.scores.map((score) => [`${score.toolId}:${score.criterionId}`, score.score]));
@@ -337,7 +349,7 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
 
   pages.push(
     [
-      pageHeader(clientName, 1, totalPages),
+      pageHeader(reportLabel, clientName, 1, totalPages),
       textOps([`Client Name: ${clientName}`], MARGIN, PAGE_HEIGHT - 112, { size: 10.4, color: [0.18, 0.22, 0.19] }),
       textOps([`Date: ${new Date().toLocaleDateString()}`], MARGIN, PAGE_HEIGHT - 130, { size: 10.4, color: [0.18, 0.22, 0.19] }),
       rectOps(MARGIN, PAGE_HEIGHT - 186, CONTENT_WIDTH, 36, [0.25, 0.39, 0.30], [0.23, 0.35, 0.27]),
@@ -360,13 +372,14 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
       ["Rank", "Vendor", "Weighted Score"],
       rankingRows,
       [44, 250, 128],
+      reportLabel,
       clientName,
       2,
       totalPages
     )
   );
 
-  pages.push(...matrixPages(criteria, vendors, scoreMap, clientName, 3, totalPages));
+  pages.push(...matrixPages(criteria, vendors, scoreMap, reportLabel, clientName, 3, totalPages));
 
   const recommendation = winner ?? ranked[0];
   const summaryReason = recommendation
@@ -374,7 +387,7 @@ export async function GET(_req: NextRequest, { params }: { params: { frameworkId
     : "No recommendation could be produced because the framework contains no scored vendors.";
   pages.push(
     [
-      pageHeader(clientName, totalPages, totalPages),
+      pageHeader(reportLabel, clientName, totalPages, totalPages),
       textOps(["Recommended Vendor"], MARGIN, PAGE_HEIGHT - 110, { size: 14, font: 2, color: [0.15, 0.28, 0.19] }),
       box(
         "Consultant Recommendation",
