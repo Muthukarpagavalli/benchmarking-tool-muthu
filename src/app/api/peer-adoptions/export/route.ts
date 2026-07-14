@@ -133,7 +133,7 @@ export async function GET(req: NextRequest) {
     include: { peerFirm: true, category: true, tool: true },
     orderBy: { dateLogged: "desc" },
   });
-  const reportTitle = categoryId ? `Where We Stand - ${adoptions[0]?.category.name ?? "Peer Benchmarking"}` : "Peer Benchmarking Report";
+  const reportTitle = categoryId ? `Where We Stand - ${adoptions[0]?.category?.name ?? adoptions[0]?.categoryName ?? "Peer Benchmarking"}` : "Peer Benchmarking Report";
   const rows = adoptions.slice(0, 12);
 
   const page = [
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
       rows.length
         ? rows.map((a) => {
             const date = new Date(a.dateLogged).toLocaleDateString();
-            return [date, a.peerFirm.name, a.category.name, a.tool?.name ?? "-", a.sourceNote];
+            return [date, a.peerFirm.name, a.category?.name ?? a.categoryName ?? "-", a.tool?.name ?? "-", a.sourceNote];
           })
         : [],
       MARGIN,

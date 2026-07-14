@@ -162,8 +162,9 @@ model PeerAdoption {
   id         String   @id @default(cuid())
   peerFirmId String
   peerFirm   PeerFirm @relation(fields: [peerFirmId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  categoryName String?
   toolId     String?
   tool       Tool?    @relation(fields: [toolId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dateLogged DateTime

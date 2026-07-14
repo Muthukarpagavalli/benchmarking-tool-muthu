@@ -14,14 +14,15 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { peerFirmId, categoryId, toolId, dateLogged, sourceNote, sourceUrl } = body;
-  if (!peerFirmId || !categoryId || !dateLogged || !sourceNote) {
+  const { peerFirmId, categoryId, categoryName, toolId, dateLogged, sourceNote, sourceUrl } = body;
+  if (!peerFirmId || (!categoryId && !categoryName) || !dateLogged || !sourceNote) {
     return NextResponse.json({ error: "missing required fields" }, { status: 400 });
   }
   const entry = await prisma.peerAdoption.create({
     data: {
       peerFirmId,
-      categoryId,
+      categoryId: categoryId || null,
+      categoryName: categoryName || null,
       toolId: toolId || null,
       dateLogged: new Date(dateLogged),
       sourceNote,

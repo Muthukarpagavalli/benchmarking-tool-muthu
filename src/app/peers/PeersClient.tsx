@@ -12,7 +12,8 @@ type Adoption = {
   sourceNote: string;
   sourceUrl: string | null;
   peerFirm: PeerFirm;
-  category: Category;
+  category: Category | null;
+  categoryName: string | null;
   tool: Tool | null;
 };
 
@@ -40,8 +41,10 @@ export default function PeersClient({
   const [standCategoryId, setStandCategoryId] = useState("");
   const [standPanelOpen, setStandPanelOpen] = useState(true);
   const [peerChoice, setPeerChoice] = useState<"existing" | "new">("existing");
+  const [categoryChoice, setCategoryChoice] = useState<"existing" | "new">("existing");
   const [toolChoice, setToolChoice] = useState<"existing" | "new">("existing");
   const [newPeerFirmName, setNewPeerFirmName] = useState("");
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [newToolName, setNewToolName] = useState("");
   const [form, setForm] = useState({
     peerFirmId: peerFirms[0]?.id ?? "",
@@ -53,7 +56,7 @@ export default function PeersClient({
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const toolsForForm = tools.filter((t) => t.categoryId === form.categoryId);
+  const toolsForForm = categoryChoice === "existing" && form.categoryId ? tools.filter((t) => t.categoryId === form.categoryId) : tools;
 
   async function createPeerFirm() {
     const name = newPeerFirmName.trim();
@@ -88,15 +91,23 @@ export default function PeersClient({
   }
 
   async function submitAdoption() {
+    const categoryName = newCategoryName.trim();
     if (!form.peerFirmId || !form.sourceNote) return;
+    if (categoryChoice === "new" && !categoryName) return;
     setSubmitting(true);
     await fetch("/api/peer-adoptions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(form),
+      body: JSON.stringify({
+        ...form,
+        categoryId: categoryChoice === "existing" ? form.categoryId : "",
+        categoryName: categoryChoice === "new" ? categoryName : "",
+      }),
     });
     setSubmitting(false);
     setForm((f) => ({ ...f, sourceNote: "", sourceUrl: "" }));
+    setNewCategoryName("");
+    setCategoryChoice("existing");
     router.refresh();
   }
 
@@ -104,7 +115,7 @@ export default function PeersClient({
     return adoptions.filter((a) => {
       if (standFirmId && a.peerFirm.id !== standFirmId) return false;
       if (standToolId && a.tool?.id !== standToolId) return false;
-      if (standCategoryId && a.category.id !== standCategoryId) return false;
+      if (standCategoryId && a.category?.id !== standCategoryId) return false;
       return true;
     });
   }, [adoptions, standCategoryId, standFirmId, standToolId]);
@@ -166,17 +177,39 @@ export default function PeersClient({
               <label className="news-field">
                 <span>Category</span>
                 <select
-                  value={form.categoryId}
+                  value={categoryChoice === "new" ? "__new__" : form.categoryId || "__select__"}
                   onChange={(e) => {
+                    if (e.target.value === "__new__") {
+                      setCategoryChoice("new");
+                      setToolChoice("existing");
+                      setForm({ ...form, categoryId: "", toolId: "" });
+                      return;
+                    }
+                    if (e.target.value === "__select__") return;
+                    setCategoryChoice("existing");
+                    setNewCategoryName("");
                     setForm({ ...form, categoryId: e.target.value, toolId: "" });
                   }}
                 >
+                  <option value="__select__" disabled hidden>
+                    Select category
+                  </option>
+                  <option value="__new__">+ New category</option>
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
                 </select>
+                {categoryChoice === "new" && (
+                  <div className="form-row">
+                    <input
+                      placeholder="New category name"
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                    />
+                  </div>
+                )}
               </label>
               <label className="news-field">
                 <span>Tool</span>
@@ -195,14 +228,14 @@ export default function PeersClient({
                   <option value="__select__" disabled>
                     Select or add tool
                   </option>
-                  <option value="__new__">+ New tool</option>
+                  {categoryChoice === "existing" && form.categoryId && <option value="__new__">+ New tool</option>}
                   {toolsForForm.map((t) => (
                     <option key={t.id} value={t.id}>
                       {t.name}
                     </option>
                   ))}
                 </select>
-                {toolChoice === "new" && (
+                {toolChoice === "new" && categoryChoice === "existing" && form.categoryId && (
                   <div className="form-row">
                     <input placeholder="New tool name" value={newToolName} onChange={(e) => setNewToolName(e.target.value)} />
                     <button type="button" className="framework-action framework-action-add" onClick={createTool} aria-label="Add tool">
@@ -238,7 +271,7 @@ export default function PeersClient({
             <div className="news-row" style={{ gridTemplateColumns: "90px 140px 130px 130px 1fr" }} key={a.id}>
               <span>{new Date(a.dateLogged).toLocaleDateString()}</span>
               <span>{a.peerFirm.name}</span>
-              <span>{a.category.name}</span>
+              <span>{a.category?.name ?? a.categoryName ?? "-"}</span>
               <span>{a.tool?.name ?? "-"}</span>
               <span>
                 {a.sourceNote}

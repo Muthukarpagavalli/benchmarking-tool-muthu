@@ -22,6 +22,7 @@ export default async function PeersPage() {
       adoptions={adoptions.map((adoption) => ({
         ...adoption,
         dateLogged: adoption.dateLogged.toISOString(),
+        categoryName: adoption.categoryName ?? null,
       }))}
       stats={{
         categories: categories.length,
