@@ -399,9 +399,6 @@ export default function CategoryClient({
 
       <div className="workspace-shell">
         <aside className="workspace-sidebar">
-          <div className="workspace-header">
-            <strong>Frameworks</strong>
-          </div>
           <div className="stack-create-panel" style={{ marginBottom: 12 }}>
             <div className="stack-create-panel-head">
               <strong>New framework</strong>
