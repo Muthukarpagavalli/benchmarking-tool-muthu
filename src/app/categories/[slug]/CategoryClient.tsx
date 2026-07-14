@@ -39,15 +39,6 @@ type FrameworkDraft = {
   clientName: string;
 };
 
-type AddToolDraft = {
-  name: string;
-};
-
-type AddCriterionDraft = {
-  name: string;
-  description: string;
-};
-
 type GapDraft = {
   title: string;
   notes: string;
@@ -63,8 +54,6 @@ export default function CategoryClient({
   const [frameworkDraft, setFrameworkDraft] = useState<FrameworkDraft>({ name: `${category.name} Evaluation`, clientName: "" });
   const [purposeDraft, setPurposeDraft] = useState<PurposeDraft>({ purpose: "", toolName: "", notes: "" });
   const [gapDraft, setGapDraft] = useState<GapDraft>({ title: "", notes: "" });
-  const [toolDraft, setToolDraft] = useState<AddToolDraft>({ name: "" });
-  const [criterionDraft, setCriterionDraft] = useState<AddCriterionDraft>({ name: "", description: "" });
   const [draggedToolId, setDraggedToolId] = useState<string | null>(null);
   const [toolOrder, setToolOrder] = useState<string[]>([]);
   const [activeMatrixCell, setActiveMatrixCell] = useState<{ criterionId: string; toolId: string } | null>(null);
@@ -155,14 +144,12 @@ export default function CategoryClient({
 
   async function addTool() {
     if (!activeFramework) return;
-    const name = toolDraft.name.trim();
-    if (!name) return;
+    const name = "New vendor";
     await fetch(`/api/frameworks/${activeFramework.id}/tools`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
     });
-    setToolDraft({ name: "" });
     router.refresh();
   }
 
@@ -216,15 +203,12 @@ export default function CategoryClient({
 
   async function addCriterion() {
     if (!activeFramework) return;
-    const name = criterionDraft.name.trim();
-    const description = criterionDraft.description.trim();
-    if (!name) return;
+    const name = "New criterion";
     await fetch(`/api/frameworks/${activeFramework.id}/criteria`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description: "" }),
     });
-    setCriterionDraft({ name: "", description: "" });
     router.refresh();
   }
 
@@ -670,39 +654,17 @@ export default function CategoryClient({
               </div>
 
               <div className="report-card matrix-card">
-                <div className="workspace-header">
+              <div className="workspace-header">
                   <div>
                     <h4 style={{ marginBottom: 4 }}>Section 3: Scoring Matrix</h4>
                   </div>
                   <div className="matrix-toolbar">
-                    <div className="matrix-add-group">
-                      <span>Vendor</span>
-                      <div className="matrix-add-row">
-                        <input
-                          className="matrix-inline-input"
-                          value={toolDraft.name}
-                          placeholder="Add vendor"
-                          onChange={(e) => setToolDraft({ name: e.target.value })}
-                        />
-                        <button type="button" className="matrix-action-button" onClick={addTool}>
-                          +
-                        </button>
-                      </div>
-                    </div>
-                    <div className="matrix-add-group">
-                      <span>Criterion</span>
-                      <div className="matrix-add-row">
-                        <input
-                          className="matrix-inline-input"
-                          value={criterionDraft.name}
-                          placeholder="Add criterion"
-                          onChange={(e) => setCriterionDraft((current) => ({ ...current, name: e.target.value }))}
-                        />
-                        <button type="button" className="matrix-action-button" onClick={addCriterion}>
-                          +
-                        </button>
-                      </div>
-                    </div>
+                    <button type="button" className="matrix-action-button" onClick={addTool}>
+                      Add vendor
+                    </button>
+                    <button type="button" className="matrix-action-button" onClick={addCriterion}>
+                      Add criterion
+                    </button>
                   </div>
                 </div>
                 <div className="score-rubric">
@@ -715,7 +677,7 @@ export default function CategoryClient({
                     <div><span>5</span><p>Excellent fit / fully meets the need</p></div>
                   </div>
                 </div>
-                <div className="workspace-table-wrap">
+                <div className="workspace-table-wrap matrix-scroll-wrap">
                   <table>
                   <thead>
                     <tr>

@@ -188,21 +188,6 @@ th { background: #f1efe9; font-weight: 600; }
   flex-wrap: wrap;
   margin: 8px 0 14px;
 }
-.matrix-add-group {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  color: #4c4c4c;
-}
-.matrix-add-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.matrix-add-row input {
-  min-width: 220px;
-}
 .matrix-header,
 .matrix-row-label {
   display: flex;
@@ -258,6 +243,8 @@ th { background: #f1efe9; font-weight: 600; }
 }
 .matrix-card table {
   table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
 }
 .matrix-card th,
 .matrix-card td {
@@ -819,6 +806,11 @@ th { background: #f1efe9; font-weight: 600; }
 .workspace-table-wrap {
   overflow-x: auto;
   margin-top: 10px;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+.matrix-scroll-wrap {
+  scrollbar-gutter: stable both-edges;
 }
 .stack-list {
   display: flex;
@@ -1067,6 +1059,7 @@ button.primary:hover, .primary:hover { background: #1f2e4d; }
   font-weight: 600;
   border-radius: 999px;
   padding: 8px 12px;
+  white-space: nowrap;
 }
 .matrix-action-button:hover {
   background: #e5ece3;
