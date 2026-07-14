@@ -68,6 +68,7 @@ export default function CategoryClient({
   const [draggedToolId, setDraggedToolId] = useState<string | null>(null);
   const [toolOrder, setToolOrder] = useState<string[]>([]);
   const [activeMatrixCell, setActiveMatrixCell] = useState<{ criterionId: string; toolId: string } | null>(null);
+  const [criterionWeightDrafts, setCriterionWeightDrafts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!activeFrameworkId && category.frameworks[0]?.id) {
@@ -90,6 +91,28 @@ export default function CategoryClient({
   useEffect(() => {
     setToolOrder(activeFramework?.tools.map((tool) => tool.id) ?? []);
   }, [activeFramework?.id, activeFramework?.tools]);
+
+  useEffect(() => {
+    if (!activeFramework) {
+      setCriterionWeightDrafts({});
+      return;
+    }
+    const nextWeights: Record<string, number> = {};
+    activeFramework.criteria.forEach((criterion) => {
+      nextWeights[criterion.id] = criterion.weight;
+    });
+    setCriterionWeightDrafts(nextWeights);
+  }, [activeFramework?.id, activeFramework?.criteria]);
+
+  const displayedCriteria = useMemo(() => {
+    if (!activeFramework) return [];
+    return [...activeFramework.criteria]
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((criterion) => ({
+        ...criterion,
+        weight: criterionWeightDrafts[criterion.id] ?? criterion.weight,
+      }));
+  }, [activeFramework, criterionWeightDrafts]);
 
   async function createFramework() {
     const name = frameworkDraft.name.trim();
@@ -223,15 +246,28 @@ export default function CategoryClient({
     const safeWeight = Number.isFinite(updatedWeight) ? Math.max(0, Math.min(1, updatedWeight)) : 0;
     const remaining = 1 - safeWeight;
     const others = criteria.filter((criterion) => criterion.id !== updatedCriterionId);
-    const otherWeight = others.length > 0 ? remaining / others.length : 1;
-    const weights = criteria.map((criterion) => ({
+    const otherTotal = others.reduce((sum, criterion) => sum + Math.max(0, criterion.weight), 0);
+    const nextWeights = criteria.map((criterion) => ({
       id: criterion.id,
-      weight: criterion.id === updatedCriterionId ? safeWeight : otherWeight,
+      weight:
+        criterion.id === updatedCriterionId
+          ? safeWeight
+          : others.length === 0
+            ? 1
+            : otherTotal > 0
+              ? Math.max(0, criterion.weight) / otherTotal * remaining
+              : remaining / others.length,
     }));
+    setCriterionWeightDrafts(
+      nextWeights.reduce<Record<string, number>>((acc, item) => {
+        acc[item.id] = item.weight;
+        return acc;
+      }, {})
+    );
     await fetch(`/api/frameworks/${activeFramework.id}/criteria/weights`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ weights }),
+      body: JSON.stringify({ weights: nextWeights }),
     });
     router.refresh();
   }
@@ -321,7 +357,7 @@ export default function CategoryClient({
 
   function moveMatrixFocus(criterionId: string, toolId: string, direction: "left" | "right" | "up" | "down") {
     if (!activeFramework) return;
-    const criteria = activeFramework.criteria;
+    const criteria = displayedCriteria;
     const tools = orderedTools;
     const criterionIndex = criteria.findIndex((criterion) => criterion.id === criterionId);
     const toolIndex = tools.findIndex((tool) => tool.id === toolId);
@@ -343,14 +379,14 @@ export default function CategoryClient({
     return activeFramework.tools
       .map((tool) => {
         let total = 0;
-        for (const criterion of activeFramework.criteria) {
+        for (const criterion of displayedCriteria) {
           const score = findScore(tool.id, criterion.id);
           if (score !== null) total += score * criterion.weight;
         }
         return { tool, total };
       })
       .sort((a, b) => b.total - a.total);
-  }, [activeFramework]);
+  }, [activeFramework, displayedCriteria]);
 
   const currentStack = activeFramework?.stackItems ?? [];
   const gapItems = activeFramework?.gapItems ?? [];
@@ -722,7 +758,7 @@ export default function CategoryClient({
                     </tr>
                   </thead>
                   <tbody>
-                    {activeFramework.criteria.map((criterion) => (
+                    {displayedCriteria.map((criterion) => (
                       <tr
                         key={criterion.id}
                         className={activeMatrixCell?.criterionId === criterion.id ? "matrix-row-active" : ""}
@@ -753,8 +789,12 @@ export default function CategoryClient({
                             step="1"
                             min={0}
                             max={100}
-                            defaultValue={Math.round(criterion.weight * 100)}
-                            onBlur={(e) => saveCriterionWeights(criterion.id, Number(e.target.value) / 100)}
+                            value={Math.round(criterion.weight * 100)}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              if (value === "") return;
+                              saveCriterionWeights(criterion.id, Number(value) / 100);
+                            }}
                           />
                         </td>
                         {orderedTools.map((tool) => (
