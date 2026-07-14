@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import CategoryDescriptionEditor from "@/components/CategoryDescriptionEditor";
 
 export const dynamic = "force-dynamic";
 
@@ -49,11 +50,15 @@ export default async function Home() {
       ) : null}
       <div className="category-grid">
         {categories.map((c: any) => (
-          <a key={c.id} className="category-card" href={`/categories/${c.slug}`}>
+          <div key={c.id} className="category-card">
             <h3>{displayCategoryName(c)}</h3>
             <p>{cleanDescription(c.description)}</p>
             <p style={{ marginTop: 8 }}>{c.tools.length} tools tracked</p>
-          </a>
+            <CategoryDescriptionEditor categoryId={c.id} initialDescription={c.description} />
+            <a className="category-open-link" href={`/categories/${c.slug}`}>
+              Open category
+            </a>
+          </div>
         ))}
       </div>
     </div>

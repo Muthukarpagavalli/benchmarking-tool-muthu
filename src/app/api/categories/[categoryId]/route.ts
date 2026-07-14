@@ -11,12 +11,21 @@ function slugify(value: string) {
 
 export async function PATCH(req: NextRequest, { params }: { params: { categoryId: string } }) {
   const body = await req.json();
-  const name = String(body.name ?? "").trim();
-  if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
-  const slug = body.slug ? String(body.slug).trim() : slugify(name);
+  const data: any = {};
+  if (body.name !== undefined) {
+    const name = String(body.name ?? "").trim();
+    if (!name) return NextResponse.json({ error: "name required" }, { status: 400 });
+    data.name = name;
+    data.slug = body.slug ? String(body.slug).trim() : slugify(name);
+  } else if (body.slug !== undefined) {
+    data.slug = String(body.slug).trim();
+  }
+  if (body.description !== undefined) {
+    data.description = String(body.description ?? "").trim() || null;
+  }
   const updated = await prisma.category.update({
     where: { id: params.categoryId },
-    data: { name, slug },
+    data,
   });
   return NextResponse.json(updated);
 }
