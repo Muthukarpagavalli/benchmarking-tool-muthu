@@ -15,6 +15,7 @@ function displayCategoryName(category: { slug: string; name: string }) {
 export default async function Home() {
   let categories: Array<any> = [];
   let dbError: string | null = null;
+  const hiddenDashboardSlugs = new Set(["contract-review-ai", "legal-research"]);
 
   try {
     categories = await prisma.category.findMany({
@@ -34,7 +35,6 @@ export default async function Home() {
         adoption tracking, peer benchmarking, and scoring frameworks by category. Click a category to explore
         or edit it.
       </p>
-      <CategoryCreateForm />
       {dbError ? (
         <div
           style={{
@@ -50,7 +50,9 @@ export default async function Home() {
         </div>
       ) : null}
       <div className="category-grid">
-        {categories.map((c: any) => (
+        {categories
+          .filter((c: any) => !hiddenDashboardSlugs.has(c.slug))
+          .map((c: any) => (
           <div key={c.id} className="category-card">
             <h3>{displayCategoryName(c)}</h3>
             <p>{cleanDescription(c.description)}</p>
@@ -61,6 +63,7 @@ export default async function Home() {
           </div>
         ))}
       </div>
+      <CategoryCreateForm />
     </div>
   );
 }

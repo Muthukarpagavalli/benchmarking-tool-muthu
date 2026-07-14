@@ -251,6 +251,37 @@ th { background: #f1efe9; font-weight: 600; }
 .matrix-card td:first-child {
   min-width: 240px;
 }
+.matrix-card th[data-matrix-column],
+.matrix-card td[data-matrix-cell] {
+  width: 138px;
+  min-width: 138px;
+  max-width: 138px;
+}
+.matrix-card th[data-matrix-column] {
+  overflow: hidden;
+}
+.matrix-card th[data-matrix-column] .matrix-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.matrix-card th[data-matrix-column] .matrix-inline-input {
+  min-width: 0;
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.matrix-card th[data-matrix-column] .tool-drag-handle {
+  padding: 0 2px;
+  font-size: 12px;
+}
+.matrix-card th[data-matrix-column] .framework-action-delete {
+  padding: 3px 5px;
+}
+.matrix-card td[data-matrix-cell] {
+  overflow: hidden;
+}
 .matrix-card tbody tr:hover {
   background: #fafcf8;
 }
