@@ -264,13 +264,19 @@ th { background: #f1efe9; font-weight: 600; }
   vertical-align: middle;
 }
 .matrix-card td:first-child {
-  min-width: 240px;
+  min-width: 220px;
+}
+.matrix-card th:nth-child(2),
+.matrix-card td:nth-child(2) {
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
 }
 .matrix-card th[data-matrix-column],
 .matrix-card td[data-matrix-cell] {
-  width: 116px;
-  min-width: 116px;
-  max-width: 116px;
+  width: 104px;
+  min-width: 104px;
+  max-width: 104px;
 }
 .matrix-card th[data-matrix-column] {
   overflow: hidden;
@@ -285,7 +291,7 @@ th { background: #f1efe9; font-weight: 600; }
   min-width: 0;
   width: 100%;
   padding: 3px 5px;
-  font-size: 11px;
+  font-size: 10px;
 }
 .matrix-card th[data-matrix-column] .tool-drag-handle {
   padding: 0 1px;
@@ -296,6 +302,13 @@ th { background: #f1efe9; font-weight: 600; }
 }
 .matrix-card td[data-matrix-cell] {
   overflow: hidden;
+}
+.matrix-card td[data-matrix-cell] .matrix-number-input {
+  width: 100%;
+}
+.matrix-card th:nth-child(2) .matrix-number-input,
+.matrix-card td:nth-child(2) .matrix-number-input {
+  width: 100%;
 }
 .matrix-card tbody tr:hover {
   background: #fafcf8;
@@ -1321,6 +1334,32 @@ button.primary:hover, .primary:hover { background: #1f2e4d; }
 .news-row-editing {
   background: #f5f8f2;
   outline: 1px solid #d9e5d4;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  align-items: center;
+}
+
+.news-row-editing span {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.news-row-editing input,
+.news-row-editing select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 11px;
+  padding: 4px 6px;
+  height: 28px;
+}
+
+.news-row-editing button {
+  padding: 5px 10px;
+  font-size: 11px;
+  height: 28px;
 }
 
 @media (max-width: 1100px) {
