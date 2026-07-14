@@ -56,7 +56,6 @@ export default async function Home() {
               <a key={c.id} className="category-card" href={`/categories/${c.slug}`}>
                 <h3>{displayCategoryName(c)}</h3>
                 <p>{cleanDescription(c.description)}</p>
-                <p style={{ marginTop: 8 }}>{c.tools.length} tools tracked</p>
               </a>
             ))}
         </div>
