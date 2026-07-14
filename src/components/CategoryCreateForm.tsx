@@ -27,7 +27,7 @@ export default function CategoryCreateForm() {
 
   return (
     <div className="category-create-panel">
-      <div className="workspace-header">
+      <div className="workspace-header compact">
         <strong>Add category</strong>
       </div>
       <div className="category-create-grid">
@@ -38,7 +38,7 @@ export default function CategoryCreateForm() {
         <label className="news-field">
           <span>Description</span>
           <textarea
-            rows={3}
+            rows={2}
             placeholder="Short description shown on the dashboard"
             value={description}
             onChange={(e) => setDescription(e.target.value)}

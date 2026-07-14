@@ -106,6 +106,7 @@ p.muted { color: #666; font-size: 12px; line-height: 1.5; }
   display: flex;
   flex-direction: column;
   gap: 10px;
+  text-decoration: none;
   transition: box-shadow 160ms ease, transform 160ms ease, border-color 160ms ease;
 }
 .category-card:hover {
@@ -117,36 +118,30 @@ p.muted { color: #666; font-size: 12px; line-height: 1.5; }
 .category-card p { margin: 0; font-size: 12px; color: #666; }
 
 .category-create-panel {
-  margin: 16px 0 20px;
-  padding: 14px;
+  margin: 24px 0 10px;
+  padding: 12px;
   border: 1px solid #e2e0da;
   border-radius: 14px;
   background: #fff;
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 .category-create-grid {
   display: grid;
   grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.4fr);
-  gap: 12px;
+  gap: 10px;
   align-items: start;
 }
-.category-open-link {
-  font-size: 12px;
-  color: #334d3f;
-  text-decoration: none;
-  font-weight: 600;
-}
-.category-open-link:hover {
-  text-decoration: underline;
+.workspace-header.compact {
+  margin-bottom: 2px;
 }
 .category-create-panel textarea {
   width: 100%;
   resize: vertical;
-  min-height: 84px;
+  min-height: 72px;
   border: 1px solid #d9d6cb;
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 7px 9px;
   font: inherit;
   font-size: 12px;
   line-height: 1.45;
@@ -253,9 +248,9 @@ th { background: #f1efe9; font-weight: 600; }
 }
 .matrix-card th[data-matrix-column],
 .matrix-card td[data-matrix-cell] {
-  width: 138px;
-  min-width: 138px;
-  max-width: 138px;
+  width: 116px;
+  min-width: 116px;
+  max-width: 116px;
 }
 .matrix-card th[data-matrix-column] {
   overflow: hidden;
@@ -263,21 +258,21 @@ th { background: #f1efe9; font-weight: 600; }
 .matrix-card th[data-matrix-column] .matrix-header {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
 }
 .matrix-card th[data-matrix-column] .matrix-inline-input {
   min-width: 0;
   width: 100%;
-  padding: 4px 6px;
-  font-size: 12px;
+  padding: 3px 5px;
+  font-size: 11px;
 }
 .matrix-card th[data-matrix-column] .tool-drag-handle {
-  padding: 0 2px;
-  font-size: 12px;
+  padding: 0 1px;
+  font-size: 11px;
 }
 .matrix-card th[data-matrix-column] .framework-action-delete {
-  padding: 3px 5px;
+  padding: 2px 4px;
 }
 .matrix-card td[data-matrix-cell] {
   overflow: hidden;

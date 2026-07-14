@@ -53,15 +53,12 @@ export default async function Home() {
         {categories
           .filter((c: any) => !hiddenDashboardSlugs.has(c.slug))
           .map((c: any) => (
-          <div key={c.id} className="category-card">
-            <h3>{displayCategoryName(c)}</h3>
-            <p>{cleanDescription(c.description)}</p>
-            <p style={{ marginTop: 8 }}>{c.tools.length} tools tracked</p>
-            <a className="category-open-link" href={`/categories/${c.slug}`}>
-              Open category
+            <a key={c.id} className="category-card" href={`/categories/${c.slug}`}>
+              <h3>{displayCategoryName(c)}</h3>
+              <p>{cleanDescription(c.description)}</p>
+              <p style={{ marginTop: 8 }}>{c.tools.length} tools tracked</p>
             </a>
-          </div>
-        ))}
+          ))}
       </div>
       <CategoryCreateForm />
     </div>
